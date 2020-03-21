@@ -1,10 +1,13 @@
 package br
 
 import (
+	"crypto/sha512"
+	"fmt"
 	"log"
+	"math/rand"
 	"net/http"
+	"time"
 
-	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
 	"github.com/labstack/echo"
 	"github.com/labstack/echo/middleware"
@@ -12,27 +15,26 @@ import (
 
 // dont do anything clever to map sessions, they are looked up by all three ids
 var sessions []*draft
-var upgrader = websocket.Upgrader{}
 
-func setAdminWs(s *draft, ctx echo.Context) error {
-	return nil
+var upgrader = websocket.Upgrader{
+	ReadBufferSize:  256,
+	WriteBufferSize: 256,
+	CheckOrigin:     checkWebsocketOrigin,
 }
 
-func setBlueWs(s *draft, ctx echo.Context) error {
+func checkWebsocketOrigin(r *http.Request) bool {
+	/*
+		origin := r.Header.Get("Origin")
+		for _, o := range config.DefaultCORSOrigins {
+			if strings.ToLower(o) == strings.ToLower(origin) {
+				return true
+			}
+		}
 
-	return nil
+		return false
+	*/
+	return true
 }
-
-func setRedWs(s *draft, ctx echo.Context) error {
-
-	return nil
-}
-
-func addReadOnlyWs(s *draft, ctx echo.Context) error {
-
-	return nil
-}
-
 func upgradeWS(ctx echo.Context) *websocket.Conn {
 	ws, err := upgrader.Upgrade(ctx.Response(), ctx.Request(), nil)
 	if err != nil {
@@ -41,39 +43,50 @@ func upgradeWS(ctx echo.Context) *websocket.Conn {
 	return ws
 }
 
+func init() {
+	rand.Seed(time.Now().Unix())
+}
+
+func randomStr() string {
+	r := rand.Int()
+	s := fmt.Sprintf("%d %d", r, time.Now().UnixNano())
+	cf := sha512.New()
+	cf.Write([]byte(s))
+	h := cf.Sum(nil)
+	cf.Reset()
+	randStr := fmt.Sprintf("%x", h)
+	return randStr[0:16]
+}
+
 func startSes(template *draft) *draft {
 	ns := *template
 	ns.IDs = &draftIDs{}
-	ns.IDs.Admin, _ = uuid.NewRandom()
-	ns.IDs.Blue, _ = uuid.NewRandom()
-	ns.IDs.Red, _ = uuid.NewRandom()
-	ns.IDs.Results, _ = uuid.NewRandom()
+	ns.IDs.Admin = randomStr()
+	ns.IDs.Blue = randomStr()
+	ns.IDs.Red = randomStr()
+	ns.IDs.Results = randomStr()
+	ns.readonlyWss = make([]*websocket.Conn, 0)
+	sessions = append(sessions, &ns)
+
 	return &ns
 }
 
-func findDraft(ctx echo.Context, st sesType) (*draft, sesType, error) {
+func findDraft(ctx echo.Context) (*draft, sesType, error) {
 	id := ctx.Param("id")
 
+	// a lil nasty, figure out a better way to tag session code types
 	for _, s := range sessions {
-		var sid uuid.UUID
-		var st sesType
-		switch st {
-		case admin:
-			sid = s.IDs.Admin
-			st = admin
-		case blue:
-			sid = s.IDs.Blue
-			st = blue
-		case red:
-			sid = s.IDs.Red
-			st = red
-		case results:
-			sid = s.IDs.Results
-			st = results
+		if s.IDs.Admin == id {
+			return s, admin, nil
 		}
-
-		if sid.String() == id {
-			return s, st, nil
+		if s.IDs.Results == id {
+			return s, results, nil
+		}
+		if s.IDs.Red == id {
+			return s, red, nil
+		}
+		if s.IDs.Blue == id {
+			return s, blue, nil
 		}
 	}
 	return nil, 0, ctx.String(http.StatusBadRequest, "no session")
@@ -86,22 +99,22 @@ func adminNewDraftHandler(c echo.Context) error {
 	return c.JSONPretty(http.StatusOK, nd, "  ")
 }
 
-func createWsSnapshot(d *draft) *wsMsgSnapshot {
-	ss := &wsMsgSnapshot{
-		wsMessage:      wsMessage{mType: WS_MSG_SNAPSHOT},
-		setup:          d.Setup,
-		adminConnected: d.adminWs != nil,
-		blueConnected:  d.blueWs != nil,
-		redConnected:   d.redWs != nil,
-		resultsViewers: len(d.readonlyWss),
+func createWsSnapshot(d *draft) *WsMsgSnapshot {
+	ss := &WsMsgSnapshot{
+		WsMessage:      WsMessage{Type: WS_MSG_SNAPSHOT},
+		Setup:          d.Setup,
+		AdminConnected: d.adminWs != nil,
+		BlueConnected:  d.blueWs != nil,
+		RedConnected:   d.redWs != nil,
+		ResultsViewers: len(d.readonlyWss),
 	}
 	return ss
 }
 
 func sendSesType(ws *websocket.Conn, st sesType) {
-	m := &wsMsgSessionType{
-		wsMessage:   wsMessage{mType: WS_MSG_SESSION_TYPE},
-		sessionType: st,
+	m := &WsMsgSessionType{
+		WsMessage:   WsMessage{Type: WS_MSG_SESSION_TYPE},
+		SessionType: st,
 	}
 
 	ws.WriteJSON(m)
@@ -133,7 +146,7 @@ func sendSnap(d *draft) {
 }
 
 func wsHandler(c echo.Context) error {
-	s, st, err := findDraft(c, admin)
+	s, st, err := findDraft(c)
 	if err != nil {
 		return err
 	}
@@ -159,11 +172,15 @@ func wsHandler(c echo.Context) error {
 // Start fires up the battlerite system. cfgDir sets where to look for config jsons, conn is the echo connection string, eg ":1234"
 func Start(cfgDir string, conn string) {
 	e := echo.New()
+
 	e.Use(middleware.CORSWithConfig(middleware.CORSConfig{
 		AllowOrigins: []string{"*"},
+		// AllowMethods:     []string{echo.GET, echo.HEAD, echo.PUT, echo.PATCH, echo.POST, echo.DELETE, echo.OPTIONS},
+		// AllowCredentials: true,
 	}))
 
 	// e.GET("/admin", adminHandler)
+
 	e.POST("/newdraft", adminNewDraftHandler)
 
 	// create just one endpoint for ws, we can figure out what it is by code, to make frontend easier

@@ -1,7 +1,6 @@
 package br
 
 import (
-	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
 )
 
@@ -26,10 +25,10 @@ type gameCharacter struct {
 
 // break draft ids out so we can selectively marshal over ws
 type draftIDs struct {
-	Admin   uuid.UUID `json:"admin"`
-	Red     uuid.UUID `json:"red"`
-	Blue    uuid.UUID `json:"blue"`
-	Results uuid.UUID `json:"results"`
+	Admin   string `json:"admin"`
+	Red     string `json:"red"`
+	Blue    string `json:"blue"`
+	Results string `json:"results"`
 }
 
 // draft info all clients care about
@@ -60,20 +59,20 @@ const (
 	WS_MSG_VOTE_ACTION            = 3
 )
 
-type wsMessage struct {
-	mType wsMsgType `json:"msgType"`
+type WsMessage struct {
+	Type wsMsgType `json:"msgType"`
 }
 
-type wsMsgSessionType struct {
-	wsMessage
-	sessionType sesType `json:"sessionType"`
+type WsMsgSessionType struct {
+	WsMessage
+	SessionType sesType `json:"sessionType"`
 }
 
-type wsMsgSnapshot struct {
-	wsMessage
-	setup          *draftSetup `json:"setup"`
-	adminConnected bool        `json:"adminConnected"`
-	redConnected   bool        `json:"redConnected"`
-	blueConnected  bool        `json:"blueConnected"`
-	resultsViewers int         `json:"resultsViewers"`
+type WsMsgSnapshot struct {
+	WsMessage
+	Setup          *draftSetup `json:"setup"`
+	AdminConnected bool        `json:"adminConnected"`
+	RedConnected   bool        `json:"redConnected"`
+	BlueConnected  bool        `json:"blueConnected"`
+	ResultsViewers int         `json:"resultsViewers"`
 }
