@@ -1,6 +1,6 @@
 package main
 
-import "brlobby/br"
+import "brdraft/br"
 
 func main() {
 	br.Start("./cfg", ":8081")
