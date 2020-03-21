@@ -64,26 +64,40 @@ const (
 	WsClientReady
 )
 
-type PhaseVote struct {
-	HasVoted        bool     `json:"hasVoted"`
-	PhaseNum        int      `json:"phaseNum"`
-	ValidRedValues  []string `json:"validRedValues"`
-	ValidBlueValues []string `json:"validBlueValues"`
-	VoteRedValue    string   `json:"voteRedValue"`
-	VoteBlueValue   string   `json:"voteBlueValue"`
+type draftState struct {
+	SessionType sesType     `json:"sessionType"`
+	Setup       *draftSetup `json:"setup"`
+	/* include copy of phases so client doesnt have to wait for first snap */
+	Phases []phaseVote `json:"phases"`
+}
+
+type phaseType string
+
+const (
+	phaseTypePick phaseType = "pick"
+	phaseTypeBan  phaseType = "ban"
+)
+
+type phaseVote struct {
+	phaseType       phaseType `json:"phaseType"`
+	HasVoted        bool      `json:"hasVoted"`
+	PhaseNum        int       `json:"phaseNum"`
+	ValidRedValues  []string  `json:"validRedValues"`
+	ValidBlueValues []string  `json:"validBlueValues"`
+	VoteRedValue    string    `json:"voteRedValue"`
+	VoteBlueValue   string    `json:"voteBlueValue"`
 }
 
 type WsMsg struct {
-	Type           wsMsgType   `json:"msgType"`
-	SessionType    sesType     `json:"sessionType"`
-	Setup          *draftSetup `json:"setup"`
-	AdminConnected bool        `json:"adminConnected"`
-	RedConnected   bool        `json:"redConnected"`
-	BlueConnected  bool        `json:"blueConnected"`
-	ResultsViewers int         `json:"resultsViewers"`
-	RedReady       bool        `json:"blueReady"`
-	BlueReady      bool        `json:"redReady"`
+	Type wsMsgType `json:"msgType"`
+
+	AdminConnected bool `json:"adminConnected"`
+	RedConnected   bool `json:"redConnected"`
+	BlueConnected  bool `json:"blueConnected"`
+	ResultsViewers int  `json:"resultsViewers"`
+	RedReady       bool `json:"blueReady"`
+	BlueReady      bool `json:"redReady"`
 
 	CurrentPhase int         `json:"currentPhase"`
-	Phases       []PhaseVote `json:"phases"`
+	Phases       []phaseVote `json:"phases"`
 }

@@ -88,13 +88,22 @@ func adminNewDraftHandler(c echo.Context) error {
 	gameParams := &draftSetup{}
 	c.Bind(gameParams)
 	nd := startDraft(gameParams)
+
+	go draftLogicLoop(nd)
 	return c.JSONPretty(http.StatusOK, nd, "  ")
+}
+
+func draftLogicLoop(d *draft) {
+	for {
+		time.Sleep(time.Millisecond * 500)
+
+		sendSnap(d)
+	}
 }
 
 func createWsSnapshot(d *draft) *WsMsg {
 	ss := &WsMsg{
 		Type:           WsMsgSnapshot,
-		Setup:          d.Setup,
 		AdminConnected: d.adminWs != nil,
 		BlueConnected:  d.blueWs != nil,
 		RedConnected:   d.redWs != nil,
@@ -104,9 +113,9 @@ func createWsSnapshot(d *draft) *WsMsg {
 }
 
 /* something changed, send current draft state to all active connections */
-func sendSnap(d *draft, st sesType) {
+func sendSnap(d *draft) {
 	ss := createWsSnapshot(d)
-	ss.SessionType = st
+	// ss.SessionType = st
 	wsconns := make([]*websocket.Conn, 0)
 	if d.adminWs != nil {
 		wsconns = append(wsconns, d.adminWs)
@@ -135,6 +144,7 @@ func wsClientLoop(d *draft, ws *websocket.Conn, st sesType) {
 		err := ws.ReadJSON(&m)
 		if err != nil {
 			notifyClientDc(d, ws, st)
+			ws.Close()
 			break
 		}
 
@@ -147,7 +157,29 @@ func handleClientMessage(d *draft, ws *websocket.Conn, st sesType, m WsMsg) {
 }
 
 func notifyClientDc(d *draft, ws *websocket.Conn, st sesType) {
+	// connection of st was disconnected
+	if d.adminWs == ws {
+		d.adminWs = nil
+	} else if d.blueWs == ws {
+		d.blueWs = nil
+	} else if d.redWs == ws {
+		d.redWs = nil
+	} else {
+		// assume was spec, remove from list
+		idx := -1
+		for i := 0; i < len(d.readonlyWss); i++ {
+			if d.readonlyWss[i] == ws {
+				idx = i
+				break
+			}
+		}
+		if idx != -1 {
+			d.readonlyWss[idx] = d.readonlyWss[len(d.readonlyWss)-1]
+			d.readonlyWss = d.readonlyWss[:len(d.readonlyWss)-1]
+		}
+	}
 
+	sendSnap(d)
 }
 
 func wsHandler(c echo.Context) error {
@@ -187,5 +219,26 @@ func Start(cfgDir string, conn string) {
 
 	// create just one endpoint for ws, we can figure out what it is by code, to make frontend easier
 	e.GET("/ws/:id", wsHandler)
+
+	e.GET("/draftState/:id", draftStateHandler)
 	e.Logger.Fatal(e.Start(conn))
+}
+
+func draftStateHandler(c echo.Context) error {
+	d, st, err := findDraft(c)
+	if err != nil {
+		return err
+	}
+
+	draftState := getDraftState(d, st)
+	return c.JSON(http.StatusOK, draftState)
+}
+
+func getDraftState(d *draft, st sesType) *draftState {
+	ds := &draftState{
+		SessionType: st,
+		Setup:       d.Setup,
+		Phases:      nil, /* TODO */
+	}
+	return ds
 }
