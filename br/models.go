@@ -2,6 +2,7 @@ package br
 
 import (
 	"github.com/gorilla/websocket"
+	"time"
 )
 
 type sesType int
@@ -42,6 +43,8 @@ type draftSetup struct {
 }
 
 type draft struct {
+	startedAt time.Time
+
 	Setup *draftSetup `json:"setup"`
 	IDs   *draftIDs   `json:"ids"`
 
@@ -54,25 +57,33 @@ type draft struct {
 type wsMsgType int
 
 const (
-	WS_MSG_SNAPSHOT     wsMsgType = 1
-	WS_MSG_SESSION_TYPE           = 2
-	WS_MSG_VOTE_ACTION            = 3
+	WsMsgSnapshot wsMsgType = 1
+	WsMsgVoteAction
+	WsMsgClientClose
+	WsServerClose
+	WsClientReady
 )
 
-type WsMessage struct {
-	Type wsMsgType `json:"msgType"`
+type PhaseVote struct {
+	HasVoted        bool     `json:"hasVoted"`
+	PhaseNum        int      `json:"phaseNum"`
+	ValidRedValues  []string `json:"validRedValues"`
+	ValidBlueValues []string `json:"validBlueValues"`
+	VoteRedValue    string   `json:"voteRedValue"`
+	VoteBlueValue   string   `json:"voteBlueValue"`
 }
 
-type WsMsgSessionType struct {
-	WsMessage
-	SessionType sesType `json:"sessionType"`
-}
-
-type WsMsgSnapshot struct {
-	WsMessage
+type WsMsg struct {
+	Type           wsMsgType   `json:"msgType"`
+	SessionType    sesType     `json:"sessionType"`
 	Setup          *draftSetup `json:"setup"`
 	AdminConnected bool        `json:"adminConnected"`
 	RedConnected   bool        `json:"redConnected"`
 	BlueConnected  bool        `json:"blueConnected"`
 	ResultsViewers int         `json:"resultsViewers"`
+	RedReady       bool        `json:"blueReady"`
+	BlueReady      bool        `json:"redReady"`
+
+	CurrentPhase int         `json:"currentPhase"`
+	Phases       []PhaseVote `json:"phases"`
 }

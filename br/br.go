@@ -23,18 +23,9 @@ var upgrader = websocket.Upgrader{
 }
 
 func checkWebsocketOrigin(r *http.Request) bool {
-	/*
-		origin := r.Header.Get("Origin")
-		for _, o := range config.DefaultCORSOrigins {
-			if strings.ToLower(o) == strings.ToLower(origin) {
-				return true
-			}
-		}
-
-		return false
-	*/
 	return true
 }
+
 func upgradeWS(ctx echo.Context) *websocket.Conn {
 	ws, err := upgrader.Upgrade(ctx.Response(), ctx.Request(), nil)
 	if err != nil {
@@ -58,17 +49,18 @@ func randomStr() string {
 	return randStr[0:16]
 }
 
-func startSes(template *draft) *draft {
-	ns := *template
+func startDraft(template *draftSetup) *draft {
+	ns := &draft{}
 	ns.IDs = &draftIDs{}
+	ns.Setup = template
 	ns.IDs.Admin = randomStr()
 	ns.IDs.Blue = randomStr()
 	ns.IDs.Red = randomStr()
 	ns.IDs.Results = randomStr()
 	ns.readonlyWss = make([]*websocket.Conn, 0)
-	sessions = append(sessions, &ns)
+	sessions = append(sessions, ns)
 
-	return &ns
+	return ns
 }
 
 func findDraft(ctx echo.Context) (*draft, sesType, error) {
@@ -93,15 +85,15 @@ func findDraft(ctx echo.Context) (*draft, sesType, error) {
 }
 
 func adminNewDraftHandler(c echo.Context) error {
-	gameParams := &draft{}
+	gameParams := &draftSetup{}
 	c.Bind(gameParams)
-	nd := startSes(gameParams)
+	nd := startDraft(gameParams)
 	return c.JSONPretty(http.StatusOK, nd, "  ")
 }
 
-func createWsSnapshot(d *draft) *WsMsgSnapshot {
-	ss := &WsMsgSnapshot{
-		WsMessage:      WsMessage{Type: WS_MSG_SNAPSHOT},
+func createWsSnapshot(d *draft) *WsMsg {
+	ss := &WsMsg{
+		Type:           WsMsgSnapshot,
 		Setup:          d.Setup,
 		AdminConnected: d.adminWs != nil,
 		BlueConnected:  d.blueWs != nil,
@@ -111,18 +103,10 @@ func createWsSnapshot(d *draft) *WsMsgSnapshot {
 	return ss
 }
 
-func sendSesType(ws *websocket.Conn, st sesType) {
-	m := &WsMsgSessionType{
-		WsMessage:   WsMessage{Type: WS_MSG_SESSION_TYPE},
-		SessionType: st,
-	}
-
-	ws.WriteJSON(m)
-}
-
 /* something changed, send current draft state to all active connections */
-func sendSnap(d *draft) {
+func sendSnap(d *draft, st sesType) {
 	ss := createWsSnapshot(d)
+	ss.SessionType = st
 	wsconns := make([]*websocket.Conn, 0)
 	if d.adminWs != nil {
 		wsconns = append(wsconns, d.adminWs)
@@ -145,6 +129,27 @@ func sendSnap(d *draft) {
 	}
 }
 
+func wsClientLoop(d *draft, ws *websocket.Conn, st sesType) {
+	for {
+		m := WsMsg{}
+		err := ws.ReadJSON(&m)
+		if err != nil {
+			notifyClientDc(d, ws, st)
+			break
+		}
+
+		handleClientMessage(d, ws, st, m)
+	}
+}
+
+func handleClientMessage(d *draft, ws *websocket.Conn, st sesType, m WsMsg) {
+
+}
+
+func notifyClientDc(d *draft, ws *websocket.Conn, st sesType) {
+
+}
+
 func wsHandler(c echo.Context) error {
 	s, st, err := findDraft(c)
 	if err != nil {
@@ -164,8 +169,7 @@ func wsHandler(c echo.Context) error {
 		s.readonlyWss = append(s.readonlyWss, newWs)
 	}
 
-	defer sendSesType(newWs, st)
-	defer sendSnap(s)
+	go wsClientLoop(s, newWs, st)
 	return c.NoContent(http.StatusSwitchingProtocols)
 }
 
@@ -178,8 +182,6 @@ func Start(cfgDir string, conn string) {
 		// AllowMethods:     []string{echo.GET, echo.HEAD, echo.PUT, echo.PATCH, echo.POST, echo.DELETE, echo.OPTIONS},
 		// AllowCredentials: true,
 	}))
-
-	// e.GET("/admin", adminHandler)
 
 	e.POST("/newdraft", adminNewDraftHandler)
 
