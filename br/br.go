@@ -20,6 +20,7 @@ const SnapshotSyncMs = 800
 // dont do anything clever to map sessions, they are looked up by all three ids
 var sessions []*draft
 var champs *Champions
+var champsFlat []*Champion
 var maps []*GameMap
 
 var upgrader = websocket.Upgrader{
@@ -162,7 +163,11 @@ func sendSnap(d *draft) {
 					ss.CurrentVote.ValidRedValues = nil
 				} else {
 					// r/o observer, remove all pending vote info
-					ss.CurrentVote = nil
+					// well almost, need current phase type, so dont nuke
+					ss.CurrentVote.VoteBlueValue = ""
+					ss.CurrentVote.VoteRedValue = ""
+					ss.CurrentVote.ValidRedValues = nil
+					ss.CurrentVote.ValidBlueValues = nil
 				}
 			}
 		}
@@ -197,24 +202,31 @@ func wsClientLoop(d *draft, ws *websocket.Conn, st sesType) {
 	}
 }
 
+func getChampionDisplayName(name string) {
+
+}
+
 func handleClientMessage(d *draft, ws *websocket.Conn, st sesType, m WsMsg) {
 	switch m.Type {
 	case WsClientReady:
+		/* do not toggle, just let them set it */
 		if ws == d.blueWs {
-			d.curSnapshot.BlueReady = !d.curSnapshot.BlueReady
+			d.curSnapshot.BlueReady = true
 		} else if ws == d.redWs {
-			d.curSnapshot.RedReady = !d.curSnapshot.RedReady
+			d.curSnapshot.RedReady = true
 		}
 	case WsMsgVoteAction:
-		if d.curSnapshot.VoteActive {
-			if m.CurrentVote != nil {
-				if ws == d.blueWs {
-					d.curSnapshot.CurrentVote.BlueVoted = true
-					d.curSnapshot.CurrentVote.VoteBlueValue = m.CurrentVote.VoteBlueValue
-				} else if ws == d.redWs {
-					d.curSnapshot.CurrentVote.RedVoted = true
-					d.curSnapshot.CurrentVote.VoteRedValue = m.CurrentVote.VoteRedValue
-				}
+		if d.curSnapshot.VoteActive && m.CurrentVote != nil {
+			if ws == d.blueWs {
+				log.Printf("got a vote from blue: %s", m.CurrentVote.VoteBlueValue)
+
+				d.curSnapshot.CurrentVote.BlueVoted = true
+				d.curSnapshot.CurrentVote.VoteBlueValue = m.CurrentVote.VoteBlueValue
+			} else if ws == d.redWs {
+				log.Printf("got a vote from red: %s", m.CurrentVote.VoteRedValue)
+
+				d.curSnapshot.CurrentVote.RedVoted = true
+				d.curSnapshot.CurrentVote.VoteRedValue = m.CurrentVote.VoteRedValue
 			}
 		}
 	case WsStartVoting:
@@ -237,25 +249,90 @@ func setupNextVote(d *draft) {
 	/* vote is automatically saved at end of timer in logic loop, dont copy here */
 
 	d.curSnapshot.VoteActive = true
-	allChamps := make([]string, 0)
+	d.curSnapshot.RedReady = false
+	d.curSnapshot.BlueReady = false
 
-	/* TODO: filter prev pick/bans */
-	for _, cx := range [][]*Champion{champs.Melee, champs.Ranged, champs.Support} {
-		for i := 0; i < len(cx); i++ {
-			allChamps = append(allChamps, cx[i].Name)
-		}
-	}
+	rc, bc := getFilteredChamps(d)
 
 	d.curSnapshot.CurrentVote = &phaseVote{
 		PhaseType:       d.phases[d.curSnapshot.CurrentPhase],
-		ValidBlueValues: allChamps,
-		ValidRedValues:  allChamps,
+		ValidBlueValues: bc,
+		ValidRedValues:  rc,
 		PhaseNum:        d.curSnapshot.CurrentPhase,
 	}
 
 	log.Printf("starting vote # %d type = %v\n", d.curSnapshot.CurrentVote.PhaseNum, d.curSnapshot.CurrentVote.PhaseType)
 	d.curSnapshot.CurrentPhase++
 	d.curSnapshot.VotingStartedAt = time.Now()
+}
+
+func getFilteredChamps(d *draft) ([]string, []string) {
+	allChamps := make([]string, 0)
+
+	for _, cx := range champsFlat {
+		allChamps = append(allChamps, cx.Name)
+	}
+
+	/* first vote, nothing to filter yet */
+	if d.curSnapshot.CurrentVote == nil || d.curSnapshot.CurrentPhase < 1 {
+		return allChamps, allChamps
+	}
+
+	retRed := make([]string, 0)
+	retBlue := make([]string, 0)
+
+	isPickPhase := d.curSnapshot.CurrentVote.PhaseType == phaseTypePick
+
+	for _, cn := range allChamps {
+		/* note not orthogonal
+		for each champ:
+			pick phase:
+				- if same team already picked, remove
+				- if opposite team banned, remove
+			ban phase:
+				- if same team already banned, remove
+		*/
+		validRed := true
+		validBlue := true
+
+		for _, pv := range d.curSnapshot.Phases {
+			if pv.VoteBlueValue == cn {
+				if pv.PhaseType == phaseTypeBan {
+					validRed = false
+					if validBlue {
+						validBlue = isPickPhase
+					}
+				} else {
+					validBlue = false
+					if validRed {
+						validRed = isPickPhase
+					}
+				}
+			}
+			if pv.VoteRedValue == cn {
+				if pv.PhaseType == phaseTypeBan {
+					validBlue = false
+					if validRed {
+						validRed = isPickPhase
+					}
+				} else {
+					validRed = false
+					if validBlue {
+						validBlue = isPickPhase
+					}
+				}
+			}
+		}
+
+		if validRed {
+			retRed = append(retRed, cn)
+		}
+		if validBlue {
+			retBlue = append(retRed, cn)
+		}
+	}
+
+	return retRed, retBlue
 }
 
 func notifyClientDc(d *draft, ws *websocket.Conn) {
@@ -321,6 +398,13 @@ func Start(cfgDir string, conn string) {
 		fmt.Printf("failed to load champions from %s\n", champFn)
 	} else {
 		champs = tryChamps
+		champsFlat = make([]*Champion, 0)
+
+		for _, cx := range [][]*Champion{champs.Melee, champs.Ranged, champs.Support} {
+			for i := 0; i < len(cx); i++ {
+				champsFlat = append(champsFlat, cx[i])
+			}
+		}
 	}
 
 	mapsFn := path.Join(cfgDir, "maps.json")
