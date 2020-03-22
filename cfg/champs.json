@@ -1,0 +1,133 @@
+{
+  "melee": [
+    {
+      "name": "bakko",
+      "displayName": "Bakko",
+      "asset": "static/Bakko_Portrait.png"
+    },
+    {
+      "name": "croak",
+      "displayName": "Croak",
+      "asset": "static/Croak_Portrait.png"
+    },
+    {
+      "name": "freya",
+      "displayName": "Freya",
+      "asset": "static/Freya_Portrait.png"
+    },
+    {
+      "name": "raigon",
+      "displayName": "Raigon",
+      "asset": "static/Raigon_Portrait.png"
+    },
+    {
+      "name": "rook",
+      "displayName": "Rook",
+      "asset": "static/Rook_Portrait.png"
+    },
+    {
+      "name": "ruhkaan",
+      "displayName": "Ruh Kaan",
+      "asset": "static/Ruh_Kaan_Portrait.png"
+    },
+    {
+      "name": "shifu",
+      "displayName": "Shifu",
+      "asset": "static/Shifu_Portrait.png"
+    },
+    {
+      "name": "thorn",
+      "displayName": "Thorn",
+      "asset": "static/Thorn_Portrait.png"
+    }
+  ],
+  "ranged": [
+    {
+      "name": "alysia",
+      "displayName": "Alysia",
+      "asset": "static/Alysia_Portrait.png"
+    },
+    {
+      "name": "ashka",
+      "displayName": "ashka",
+      "asset": "static/Ashka_Portrait.png"
+    },
+    {
+      "name": "destiny",
+      "displayName": "Destiny",
+      "asset": "static/Destiny_Portrait.png"
+    },
+    {
+      "name": "ezmo",
+      "displayName": "Ezmo",
+      "asset": "static/Ezmo_Portrait.png"
+    },
+    {
+      "name": "iva",
+      "displayName": "Iva",
+      "asset": "static/Iva_Portrait.png"
+    },
+    {
+      "name": "jade",
+      "displayName": "Jade",
+      "asset": "static/Jade_Portrait.png"
+    },
+    {
+      "name": "jumong",
+      "displayName": "Jumong",
+      "asset": "static/Jumong_Portrait.png"
+    },
+    {
+      "name": "taya",
+      "displayName": "Taya",
+      "asset": "static/Taya_Portrait.png"
+    },
+    {
+      "name": "varesh",
+      "displayName": "Varesh",
+      "asset": "static/Varesh_Portrait.png"
+    }
+  ],
+  "support": [
+    {
+      "name": "blossom",
+      "displayName": "Blossom",
+      "asset": "static/Blossom_Portrait.png"
+    },
+    {
+      "name": "lucie",
+      "displayName": "Lucie",
+      "asset": "static/Lucie_Portrait.png"
+    },
+    {
+      "name": "oldur",
+      "displayName": "Oldur",
+      "asset": "static/Oldur_Portrait.png"
+    },
+    {
+      "name": "pearl",
+      "displayName": "Pearl",
+      "asset": "static/Pearl_Portrait.png"
+    },
+    {
+      "name": "pestilus",
+      "displayName": "Pestilus",
+      "asset": "static/Pestilus_Portrait.png"
+    },
+    {
+      "name": "poloma",
+      "displayName": "Poloma",
+      "asset": "static/Poloma_Portrait.png"
+    },
+    {
+      "name": "sirius",
+      "displayName": "Sirius",
+      "asset": "static/Sirius_Portrait.png"
+    },
+    {
+      "name": "zander",
+      "displayName": "Zander",
+      "asset": "static/Zander_Portrait.png"
+    }
+  ]
+}

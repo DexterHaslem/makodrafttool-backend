@@ -6,6 +6,7 @@ import (
 	"log"
 	"math/rand"
 	"net/http"
+	"path"
 	"sync"
 	"time"
 
@@ -18,6 +19,7 @@ const SnapshotSyncMs = 800
 
 // dont do anything clever to map sessions, they are looked up by all three ids
 var sessions []*draft
+var champs *Champions
 
 var upgrader = websocket.Upgrader{
 	ReadBufferSize:  256,
@@ -208,18 +210,29 @@ func handleClientMessage(d *draft, ws *websocket.Conn, st sesType, m WsMsg) {
 	case WsStartVoting:
 		if ws == d.adminWs {
 			/* send notification to two captains to start countdown + pick timer */
-			d.curSnapshot.VoteActive = true
-			d.curSnapshot.CurrentVote = &phaseVote{
-				PhaseType: phaseTypePick,
-			}
-			d.curSnapshot.VotingStartedAt = time.Now()
+			setupNextVote(d)
 		}
 	}
 
 	sendSnap(d)
 }
 
+func setupNextVote(d *draft) {
+	/* TODO: read phase from phases */
+	/* TODO: setup valid values */
+	d.curSnapshot.VoteActive = true
+	d.curSnapshot.CurrentPhase++
+	d.curSnapshot.CurrentVote = &phaseVote{
+		PhaseType: phaseTypePick,
+	}
+	d.curSnapshot.VotingStartedAt = time.Now()
+}
+
 func notifyClientDc(d *draft, ws *websocket.Conn) {
+	if d == nil || ws == nil {
+		return
+	}
+
 	// connection of st was disconnected
 	if d.adminWs == ws {
 		d.adminWs = nil
@@ -272,19 +285,39 @@ func wsHandler(c echo.Context) error {
 func Start(cfgDir string, conn string) {
 	e := echo.New()
 
+	champFn := path.Join(cfgDir, "champs.json")
+	tryChamps, err := ReadChampions(champFn)
+	if err != nil {
+		fmt.Printf("failed to load champions from %s\n", champFn)
+	} else {
+		champs = tryChamps
+	}
+
 	e.Use(middleware.CORSWithConfig(middleware.CORSConfig{
 		AllowOrigins: []string{"*"},
 		// AllowMethods:     []string{echo.GET, echo.HEAD, echo.PUT, echo.PATCH, echo.POST, echo.DELETE, echo.OPTIONS},
 		// AllowCredentials: true,
 	}))
 
-	e.POST("/newdraft", adminNewDraftHandler)
+	setupEndpoints(e)
 
+	e.Logger.Fatal(e.Start(conn))
+}
+
+func setupEndpoints(e *echo.Echo) {
+	e.POST("/newdraft", adminNewDraftHandler)
+	e.GET("/champions", getChampionsHandler)
 	// create just one endpoint for ws, we can figure out what it is by code, to make frontend easier
 	e.GET("/ws/:id", wsHandler)
-
 	e.GET("/draftState/:id", draftStateHandler)
-	e.Logger.Fatal(e.Start(conn))
+}
+
+func getChampionsHandler(c echo.Context) error {
+	if champs == nil {
+		return c.String(http.StatusOK, "")
+	}
+
+	return c.JSON(http.StatusOK, champs)
 }
 
 func draftStateHandler(c echo.Context) error {

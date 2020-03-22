@@ -1,7 +1,10 @@
 package br
 
 import (
+	"encoding/json"
 	"github.com/gorilla/websocket"
+	"io/ioutil"
+	"os"
 	"sync"
 	"time"
 )
@@ -112,4 +115,30 @@ type WsMsg struct {
 	CurrentVote     *phaseVote   `json:"currentVote"`
 	Phases          []*phaseVote `json:"phases"`
 	VotingStartedAt time.Time
+}
+
+type Champion struct {
+	Name        string `json:"name"`
+	DisplayName string `json:"displayName"`
+	Asset       string `json:"asset"`
+}
+
+type Champions struct {
+	Melee   []*Champion `json:"melee"`
+	Ranged  []*Champion `json:"ranged"`
+	Support []*Champion `json:"support"`
+}
+
+func ReadChampions(fn string) (*Champions, error) {
+	f, err := os.Open(fn)
+	if err != nil {
+		return nil, err
+	}
+	defer f.Close()
+
+	bytes, _ := ioutil.ReadAll(f)
+	champions := &Champions{}
+	json.Unmarshal(bytes, champions)
+
+	return champions, nil
 }
