@@ -6,12 +6,15 @@ import (
 	"log"
 	"math/rand"
 	"net/http"
+	"sync"
 	"time"
 
 	"github.com/gorilla/websocket"
 	"github.com/labstack/echo"
 	"github.com/labstack/echo/middleware"
 )
+
+const SnapshotSyncMs = 800
 
 // dont do anything clever to map sessions, they are looked up by all three ids
 var sessions []*draft
@@ -51,6 +54,7 @@ func randomStr() string {
 
 func startDraft(template *draftSetup) *draft {
 	ns := &draft{}
+	ns.wsWriteMutext = sync.Mutex{}
 	ns.IDs = &draftIDs{}
 	ns.Setup = template
 	ns.IDs.Admin = randomStr()
@@ -95,27 +99,23 @@ func adminNewDraftHandler(c echo.Context) error {
 
 func draftLogicLoop(d *draft) {
 	for {
-		time.Sleep(time.Millisecond * 500)
+		time.Sleep(time.Millisecond * SnapshotSyncMs)
 
+		if d.curSnapshot != nil && d.curSnapshot.VoteActive {
+			voteTime := time.Now().Sub(d.curSnapshot.VotingStartedAt)
+			if int(voteTime.Seconds()) >= d.Setup.VoteSecs {
+				d.curSnapshot.VoteActive = false
+				/* TODO: transistion */
+			}
+		}
 		sendSnap(d)
 	}
 }
 
-func createWsSnapshot(d *draft) *WsMsg {
-	ss := &WsMsg{
-		Type:           WsMsgSnapshot,
-		AdminConnected: d.adminWs != nil,
-		BlueConnected:  d.blueWs != nil,
-		RedConnected:   d.redWs != nil,
-		ResultsViewers: len(d.readonlyWss),
-	}
-	return ss
-}
-
 /* something changed, send current draft state to all active connections */
 func sendSnap(d *draft) {
-	ss := createWsSnapshot(d)
-	// ss.SessionType = st
+	updateSnapshot(d)
+
 	wsconns := make([]*websocket.Conn, 0)
 	if d.adminWs != nil {
 		wsconns = append(wsconns, d.adminWs)
@@ -133,9 +133,42 @@ func sendSnap(d *draft) {
 		}
 	}
 
+	d.wsWriteMutext.Lock()
 	for _, ws := range wsconns {
+		/* dont send pending vote stuff to others that would leak picks early */
+		ss := *d.curSnapshot
+		if d.curSnapshot.VoteActive {
+			cvc := *ss.CurrentVote
+			ss.CurrentVote = &cvc
+			if ws != d.adminWs {
+				if ws == d.redWs {
+					ss.CurrentVote.VoteBlueValue = ""
+					ss.CurrentVote.ValidBlueValues = nil
+				} else if ws == d.blueWs {
+
+					ss.CurrentVote.VoteRedValue = ""
+					ss.CurrentVote.ValidRedValues = nil
+				} else {
+					// r/o observer, remove all pending vote info
+					ss.CurrentVote = nil
+				}
+			}
+		}
 		ws.WriteJSON(ss)
 	}
+	d.wsWriteMutext.Unlock()
+}
+
+func updateSnapshot(d *draft) {
+	if d.curSnapshot == nil {
+		d.curSnapshot = &WsMsg{}
+	}
+
+	d.curSnapshot.Type = WsMsgSnapshot
+	d.curSnapshot.AdminConnected = d.adminWs != nil
+	d.curSnapshot.BlueConnected = d.blueWs != nil
+	d.curSnapshot.RedConnected = d.redWs != nil
+	d.curSnapshot.ResultsViewers = len(d.readonlyWss)
 }
 
 func wsClientLoop(d *draft, ws *websocket.Conn, st sesType) {
@@ -143,7 +176,7 @@ func wsClientLoop(d *draft, ws *websocket.Conn, st sesType) {
 		m := WsMsg{}
 		err := ws.ReadJSON(&m)
 		if err != nil {
-			notifyClientDc(d, ws, st)
+			notifyClientDc(d, ws)
 			ws.Close()
 			break
 		}
@@ -153,10 +186,40 @@ func wsClientLoop(d *draft, ws *websocket.Conn, st sesType) {
 }
 
 func handleClientMessage(d *draft, ws *websocket.Conn, st sesType, m WsMsg) {
+	switch m.Type {
+	case WsClientReady:
+		if ws == d.blueWs {
+			d.curSnapshot.BlueReady = !d.curSnapshot.BlueReady
+		} else if ws == d.redWs {
+			d.curSnapshot.RedReady = !d.curSnapshot.RedReady
+		}
+	case WsMsgVoteAction:
+		if d.curSnapshot.VoteActive {
+			if m.CurrentVote != nil {
+				if ws == d.blueWs {
+					d.curSnapshot.CurrentVote.BlueVoted = true
+					d.curSnapshot.CurrentVote.VoteBlueValue = m.CurrentVote.VoteBlueValue
+				} else if ws == d.redWs {
+					d.curSnapshot.CurrentVote.RedVoted = true
+					d.curSnapshot.CurrentVote.VoteRedValue = m.CurrentVote.VoteRedValue
+				}
+			}
+		}
+	case WsStartVoting:
+		if ws == d.adminWs {
+			/* send notification to two captains to start countdown + pick timer */
+			d.curSnapshot.VoteActive = true
+			d.curSnapshot.CurrentVote = &phaseVote{
+				PhaseType: phaseTypePick,
+			}
+			d.curSnapshot.VotingStartedAt = time.Now()
+		}
+	}
 
+	sendSnap(d)
 }
 
-func notifyClientDc(d *draft, ws *websocket.Conn, st sesType) {
+func notifyClientDc(d *draft, ws *websocket.Conn) {
 	// connection of st was disconnected
 	if d.adminWs == ws {
 		d.adminWs = nil

@@ -2,6 +2,7 @@ package br
 
 import (
 	"github.com/gorilla/websocket"
+	"sync"
 	"time"
 )
 
@@ -52,16 +53,21 @@ type draft struct {
 	redWs       *websocket.Conn
 	blueWs      *websocket.Conn
 	readonlyWss []*websocket.Conn
+
+	wsWriteMutext sync.Mutex
+
+	curSnapshot *WsMsg
 }
 
 type wsMsgType int
 
 const (
-	WsMsgSnapshot wsMsgType = 1
-	WsMsgVoteAction
-	WsMsgClientClose
-	WsServerClose
-	WsClientReady
+	WsMsgSnapshot    wsMsgType = 1
+	WsMsgVoteAction  wsMsgType = 2
+	WsMsgClientClose wsMsgType = 3
+	WsServerClose    wsMsgType = 4
+	WsClientReady    wsMsgType = 5
+	WsStartVoting    wsMsgType = 6
 )
 
 type draftState struct {
@@ -79,13 +85,16 @@ const (
 )
 
 type phaseVote struct {
-	phaseType       phaseType `json:"phaseType"`
-	HasVoted        bool      `json:"hasVoted"`
-	PhaseNum        int       `json:"phaseNum"`
-	ValidRedValues  []string  `json:"validRedValues"`
-	ValidBlueValues []string  `json:"validBlueValues"`
-	VoteRedValue    string    `json:"voteRedValue"`
-	VoteBlueValue   string    `json:"voteBlueValue"`
+	PhaseType phaseType `json:"phaseType"`
+	HasVoted  bool      `json:"hasVoted"`
+	PhaseNum  int       `json:"phaseNum"`
+	RedVoted  bool      `json:"redHasVoted"`
+	BlueVoted bool      `json:"redHasVoted"`
+	// below are trusted values stripped based on receiver
+	ValidRedValues  []string `json:"validRedValues"`
+	ValidBlueValues []string `json:"validBlueValues"`
+	VoteRedValue    string   `json:"voteRedValue"`
+	VoteBlueValue   string   `json:"voteBlueValue"`
 }
 
 type WsMsg struct {
@@ -95,9 +104,12 @@ type WsMsg struct {
 	RedConnected   bool `json:"redConnected"`
 	BlueConnected  bool `json:"blueConnected"`
 	ResultsViewers int  `json:"resultsViewers"`
-	RedReady       bool `json:"blueReady"`
-	BlueReady      bool `json:"redReady"`
+	RedReady       bool `json:"redReady"`
+	BlueReady      bool `json:"blueReady"`
 
-	CurrentPhase int         `json:"currentPhase"`
-	Phases       []phaseVote `json:"phases"`
+	VoteActive      bool         `json:"voteActive"`
+	CurrentPhase    int          `json:"currentPhase"`
+	CurrentVote     *phaseVote   `json:"currentVote"`
+	Phases          []*phaseVote `json:"phases"`
+	VotingStartedAt time.Time
 }
