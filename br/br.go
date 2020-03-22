@@ -219,11 +219,23 @@ func handleClientMessage(d *draft, ws *websocket.Conn, st sesType, m WsMsg) {
 
 func setupNextVote(d *draft) {
 	/* TODO: read phase from phases */
-	/* TODO: setup valid values */
+
 	d.curSnapshot.VoteActive = true
 	d.curSnapshot.CurrentPhase++
+	allChamps := make([]string, 0)
+
+	/* TODO: filter prev pick/bans */
+	for _, cx := range [][]*Champion{champs.Melee, champs.Ranged, champs.Support} {
+		for i := 0; i < len(cx); i++ {
+			allChamps = append(allChamps, cx[i].Name)
+		}
+	}
+
 	d.curSnapshot.CurrentVote = &phaseVote{
-		PhaseType: phaseTypePick,
+		PhaseType:       phaseTypePick,
+		ValidBlueValues: allChamps,
+		ValidRedValues:  allChamps,
+		PhaseNum:        d.curSnapshot.CurrentPhase,
 	}
 	d.curSnapshot.VotingStartedAt = time.Now()
 }
