@@ -1,0 +1,92 @@
+[
+  {
+    "name": "blackstone_arena_d",
+    "displayName": "Blackstone Arena Day",
+    "asset": ""
+  },
+  {
+    "name": "blackstone_arena_n",
+    "displayName": "Blackstone Arena Night",
+    "asset": ""
+  },
+  {
+    "name": "daharin_battlegrounds_d",
+    "displayName": "Daharin Battlegrounds Day",
+    "asset": ""
+  },
+  {
+    "name": "daharin_battlegrounds_n",
+    "displayName": "Daharin Battlegrounds Night",
+    "asset": ""
+  },
+  {
+    "name": "dragon_garden_d",
+    "displayName": "Dragon Garden Day",
+    "asset": ""
+  },
+  {
+    "name": "dragon_garden_n",
+    "displayName": "Dragon Garden Night",
+    "asset": ""
+  },
+  {
+    "name": "meriko_summit_d",
+    "displayName": "Meriko Summit Day",
+    "asset": ""
+  },
+  {
+    "name": "meriko_summit_n",
+    "displayName": "Meriko Summit Night",
+    "asset": ""
+  },
+  {
+    "name": "misty_woods_d",
+    "displayName": "Misty Woods Day",
+    "asset": ""
+  },
+  {
+    "name": "misty_woods_n",
+    "displayname": "Misty Woods Night",
+    "asset": ""
+  },
+  {
+    "name": "mount_araz_d",
+    "displayname": "Mount Araz Day",
+    "asset": ""
+  },
+  {
+    "name": "mount_araz_n",
+    "displayname": "Mount Araz Night",
+    "asset": ""
+  },
+  {
+    "name": "orman_temple_d",
+    "displayname": "Orman Temple Day",
+    "asset": ""
+  },
+  {
+    "name": "orman_temple_n",
+    "displayname": "Orman Temple Night",
+    "asset": ""
+  },
+  {
+    "name": "sky_ring_d",
+    "displayname": "Sky Ring Day",
+    "asset": ""
+  },
+  {
+    "name": "sky_ring_n",
+    "displayname": "Sky Ring Night",
+    "asset": ""
+  },
+  {
+    "name": "the_great_market_d",
+    "displayname": "The Great Market Day",
+    "asset": ""
+  },
+  {
+    "name": "the_great_market_n",
+    "displayname": "The Great Market Night",
+    "asset": ""
+  }
+]

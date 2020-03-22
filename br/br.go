@@ -20,6 +20,7 @@ const SnapshotSyncMs = 800
 // dont do anything clever to map sessions, they are looked up by all three ids
 var sessions []*draft
 var champs *Champions
+var maps []*GameMap
 
 var upgrader = websocket.Upgrader{
 	ReadBufferSize:  256,
@@ -322,6 +323,14 @@ func Start(cfgDir string, conn string) {
 		champs = tryChamps
 	}
 
+	mapsFn := path.Join(cfgDir, "maps.json")
+	tryMaps, err := ReadMaps(mapsFn)
+	if err != nil {
+		fmt.Printf("failed to load maps from %s\n", mapsFn)
+	} else {
+		maps = tryMaps
+	}
+
 	e.Use(middleware.CORSWithConfig(middleware.CORSConfig{
 		AllowOrigins: []string{"*"},
 		// AllowMethods:     []string{echo.GET, echo.HEAD, echo.PUT, echo.PATCH, echo.POST, echo.DELETE, echo.OPTIONS},
@@ -336,6 +345,7 @@ func Start(cfgDir string, conn string) {
 func setupEndpoints(e *echo.Echo) {
 	e.POST("/newdraft", adminNewDraftHandler)
 	e.GET("/champions", getChampionsHandler)
+	e.GET("/maps", getMapsHandler)
 	// create just one endpoint for ws, we can figure out what it is by code, to make frontend easier
 	e.GET("/ws/:id", wsHandler)
 	e.GET("/draftState/:id", draftStateHandler)
@@ -343,10 +353,18 @@ func setupEndpoints(e *echo.Echo) {
 
 func getChampionsHandler(c echo.Context) error {
 	if champs == nil {
-		return c.String(http.StatusOK, "")
+		return c.String(http.StatusOK, "{}")
 	}
 
 	return c.JSON(http.StatusOK, champs)
+}
+
+func getMapsHandler(c echo.Context) error {
+	if maps == nil {
+		return c.String(http.StatusOK, "[]")
+	}
+
+	return c.JSON(http.StatusOK, maps)
 }
 
 func draftStateHandler(c echo.Context) error {

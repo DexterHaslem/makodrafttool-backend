@@ -146,3 +146,23 @@ func ReadChampions(fn string) (*Champions, error) {
 
 	return champions, nil
 }
+
+type GameMap struct {
+	Name        string `json:"name"`
+	DisplayName string `json:"displayName"`
+	Asset       string `json:"asset"`
+}
+
+func ReadMaps(fn string) ([]*GameMap, error) {
+	f, err := os.Open(fn)
+	if err != nil {
+		return nil, err
+	}
+	defer f.Close()
+
+	bytes, _ := ioutil.ReadAll(f)
+	var maps []*GameMap
+	json.Unmarshal(bytes, &maps)
+
+	return maps, nil
+}
