@@ -59,6 +59,7 @@ type draft struct {
 
 	wsWriteMutext sync.Mutex
 
+	phases      []phaseType
 	curSnapshot *WsMsg
 }
 
@@ -92,7 +93,7 @@ type phaseVote struct {
 	HasVoted  bool      `json:"hasVoted"`
 	PhaseNum  int       `json:"phaseNum"`
 	RedVoted  bool      `json:"redHasVoted"`
-	BlueVoted bool      `json:"redHasVoted"`
+	BlueVoted bool      `json:"blueHasVoted"`
 	// below are trusted values stripped based on receiver
 	ValidRedValues  []string `json:"validRedValues"`
 	ValidBlueValues []string `json:"validBlueValues"`
@@ -114,6 +115,9 @@ type WsMsg struct {
 	CurrentPhase    int          `json:"currentPhase"`
 	CurrentVote     *phaseVote   `json:"currentVote"`
 	Phases          []*phaseVote `json:"phases"`
+	DraftDone       bool         `json:"draftDone"`
+	DraftStartedAt  time.Time    `json:"draftStartedAt"`
+	DraftEndedAt    time.Time    `json:"draftEndedAt"`
 	VotingStartedAt time.Time
 }
 

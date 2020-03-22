@@ -59,13 +59,16 @@ func startDraft(template *draftSetup) *draft {
 	ns.wsWriteMutext = sync.Mutex{}
 	ns.IDs = &draftIDs{}
 	ns.Setup = template
+	if ns.Setup.VoteSecs < 2 {
+		ns.Setup.VoteSecs = 3
+	}
 	ns.IDs.Admin = randomStr()
 	ns.IDs.Blue = randomStr()
 	ns.IDs.Red = randomStr()
 	ns.IDs.Results = randomStr()
 	ns.readonlyWss = make([]*websocket.Conn, 0)
 	sessions = append(sessions, ns)
-
+	ns.phases = []phaseType{phaseTypeBan, phaseTypePick, phaseTypePick, phaseTypeBan, phaseTypePick}
 	return ns
 }
 
@@ -103,11 +106,18 @@ func draftLogicLoop(d *draft) {
 	for {
 		time.Sleep(time.Millisecond * SnapshotSyncMs)
 
+		if d.curSnapshot != nil && d.curSnapshot.DraftDone {
+			/* dont force d/c clients, let them view results */
+			return
+		}
+
 		if d.curSnapshot != nil && d.curSnapshot.VoteActive {
-			voteTime := time.Now().Sub(d.curSnapshot.VotingStartedAt)
-			if int(voteTime.Seconds()) >= d.Setup.VoteSecs {
+			voteDelta := time.Now().Sub(d.curSnapshot.VotingStartedAt)
+			if int(voteDelta.Seconds()) >= d.Setup.VoteSecs {
+				cvCopy := *d.curSnapshot.CurrentVote
 				d.curSnapshot.VoteActive = false
-				/* TODO: transistion */
+				cvCopy.HasVoted = true
+				d.curSnapshot.Phases = append(d.curSnapshot.Phases, &cvCopy)
 			}
 		}
 		sendSnap(d)
@@ -147,7 +157,6 @@ func sendSnap(d *draft) {
 					ss.CurrentVote.VoteBlueValue = ""
 					ss.CurrentVote.ValidBlueValues = nil
 				} else if ws == d.blueWs {
-
 					ss.CurrentVote.VoteRedValue = ""
 					ss.CurrentVote.ValidRedValues = nil
 				} else {
@@ -164,9 +173,9 @@ func sendSnap(d *draft) {
 func updateSnapshot(d *draft) {
 	if d.curSnapshot == nil {
 		d.curSnapshot = &WsMsg{}
+		d.curSnapshot.Phases = make([]*phaseVote, 0)
+		d.curSnapshot.Type = WsMsgSnapshot
 	}
-
-	d.curSnapshot.Type = WsMsgSnapshot
 	d.curSnapshot.AdminConnected = d.adminWs != nil
 	d.curSnapshot.BlueConnected = d.blueWs != nil
 	d.curSnapshot.RedConnected = d.redWs != nil
@@ -218,10 +227,15 @@ func handleClientMessage(d *draft, ws *websocket.Conn, st sesType, m WsMsg) {
 }
 
 func setupNextVote(d *draft) {
-	/* TODO: read phase from phases */
+	if d.curSnapshot.CurrentPhase >= len(d.phases) {
+		/* voting is done, ignore */
+		d.curSnapshot.DraftDone = true
+		return
+	}
+
+	/* vote is automatically saved at end of timer in logic loop, dont copy here */
 
 	d.curSnapshot.VoteActive = true
-	d.curSnapshot.CurrentPhase++
 	allChamps := make([]string, 0)
 
 	/* TODO: filter prev pick/bans */
@@ -232,11 +246,14 @@ func setupNextVote(d *draft) {
 	}
 
 	d.curSnapshot.CurrentVote = &phaseVote{
-		PhaseType:       phaseTypePick,
+		PhaseType:       d.phases[d.curSnapshot.CurrentPhase],
 		ValidBlueValues: allChamps,
 		ValidRedValues:  allChamps,
 		PhaseNum:        d.curSnapshot.CurrentPhase,
 	}
+
+	log.Printf("starting vote # %d type = %v\n", d.curSnapshot.CurrentVote.PhaseNum, d.curSnapshot.CurrentVote.PhaseType)
+	d.curSnapshot.CurrentPhase++
 	d.curSnapshot.VotingStartedAt = time.Now()
 }
 
