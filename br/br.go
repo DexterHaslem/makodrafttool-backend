@@ -18,6 +18,8 @@ import (
 const draftLogicRateMs = 1000
 const draftLogicTimerUpdateRateMs = 500
 
+var draftPhases = []phaseType{phaseTypeBan, phaseTypePick, phaseTypePick, phaseTypeBan, phaseTypePick}
+
 // dont do anything clever to map sessions, they are looked up by all three ids
 var sessions []*draft
 var champs *Champions
@@ -25,8 +27,8 @@ var champsFlat []*Champion
 var maps []*GameMap
 
 var upgrader = websocket.Upgrader{
-	ReadBufferSize:  256,
-	WriteBufferSize: 256,
+	ReadBufferSize:  128,
+	WriteBufferSize: 128,
 	CheckOrigin:     checkWebsocketOrigin,
 }
 
@@ -57,7 +59,7 @@ func randomStr() string {
 	return randStr[0:16]
 }
 
-func startDraft(template *draftSetup) *draft {
+func createNewDraft(template *draftSetup) *draft {
 	d := &draft{}
 	d.wsWriteMutext = sync.Mutex{}
 	d.IDs = &draftIDs{}
@@ -67,9 +69,9 @@ func startDraft(template *draftSetup) *draft {
 	d.IDs.Red = randomStr()
 	d.IDs.Results = randomStr()
 	d.readonlyWss = make([]*websocket.Conn, 0)
+	d.curSnapshot.DraftCreatedAt = time.Now()
 
 	sessions = append(sessions, d)
-	d.phases = []phaseType{phaseTypeBan, phaseTypePick, phaseTypePick, phaseTypeBan, phaseTypePick}
 
 	/* wait for admin to kick off draft, otherwise timers start */
 	d.waitingStart = true
@@ -100,16 +102,20 @@ func findDraft(ctx echo.Context) (*draft, sesType, error) {
 func adminNewDraftHandler(c echo.Context) error {
 	gameParams := &draftSetup{}
 	c.Bind(gameParams)
-	nd := startDraft(gameParams)
+	/* TODO: any validation here */
+	nd := createNewDraft(gameParams)
 
 	go draftLogicLoop(nd)
 	return c.JSONPretty(http.StatusOK, nd, "  ")
 }
 
 func draftLogicLoop(d *draft) {
+
+	/* wait for draft to kick off */
 	for {
 		time.Sleep(time.Millisecond * draftLogicRateMs)
 
+		/* TODO: if someone creates a draft but never starts it, check here to nuke after a timeout */
 		if d.curSnapshot == nil {
 			continue
 		}
@@ -119,54 +125,56 @@ func draftLogicLoop(d *draft) {
 			return
 		}
 
-		/* make sure to continue sending snapshots while waiting to start */
-		// sendSnap(d)
-
 		if d.waitingStart {
 			continue
 		}
-
-		/* admin hit button, we've started drafting */
-		for i, p := range d.phases {
-			log.Printf("draft %s: phase# %d (%v) started\n", d.Setup.Name, i, p)
-
-			setupNextVote(d)
-			/* TODO: pause functionality is really hard
-			for d.curSnapshot.VotePaused {
-				time.Sleep(draftLogicRateMs * time.Millisecond)
-			} */
-
-			/* run draft phase timer server side. if both teams lock in , move on early */
-			for {
-				time.Sleep(draftLogicTimerUpdateRateMs * time.Millisecond)
-				voteDelta := time.Now().Sub(d.curSnapshot.VotingStartedAt)
-				timeLeft := float64(d.Setup.VotingSecs[i]) - voteDelta.Seconds()
-
-				donePhase := timeLeft <= 0 || (d.curSnapshot.CurrentVote.RedVoted && d.curSnapshot.CurrentVote.BlueVoted)
-				if donePhase {
-					cvCopy := *d.curSnapshot.CurrentVote
-					d.curSnapshot.VoteActive = false
-					cvCopy.HasVoted = true
-					d.curSnapshot.Phases = append(d.curSnapshot.Phases, &cvCopy)
-					d.curSnapshot.VoteTimeLeft = 0
-				} else {
-					d.curSnapshot.VoteTimeLeft = float32(timeLeft)
-				}
-
-				/* always send snapshot so vote goes in */
-				d.curSnapshot.VoteTimeLeftPretty = fmt.Sprintf("%.1f", d.curSnapshot.VoteTimeLeft)
-				sendSnap(d)
-
-				if donePhase {
-					break
-				}
-			}
-
-			log.Printf("draft %s: phase# %d (%v) done\n", d.Setup.Name, i, p)
-			/* TODO: use draft setup wait seconds */
-			time.Sleep(time.Second * 2)
-		}
 	}
+
+	log.Printf("admin started draft '%s'\n", d.Setup.Name)
+
+	/* admin hit button, we've started drafting */
+	for i, p := range draftPhases {
+		log.Printf("draft '%s': phase# %d (%v) started\n", d.Setup.Name, i, p)
+
+		setupNextVote(d, p)
+
+		/* run draft phase timer server side. if both teams lock in , move on early */
+		for {
+			time.Sleep(draftLogicTimerUpdateRateMs * time.Millisecond)
+
+			voteDelta := time.Now().Sub(d.curSnapshot.VotingStartedAt)
+			timeLeft := float64(d.Setup.VotingSecs[i]) - voteDelta.Seconds()
+
+			donePhase := timeLeft <= 0 || (d.curSnapshot.CurrentVote.RedVoted && d.curSnapshot.CurrentVote.BlueVoted)
+			if !donePhase {
+				d.curSnapshot.VoteTimeLeft = float32(timeLeft)
+				d.curSnapshot.VoteTimeLeftPretty = fmt.Sprintf("%.1f", d.curSnapshot.VoteTimeLeft)
+
+				sendSnap(d)
+			} else {
+				break
+			}
+		}
+
+		/* save the phase that just finished */
+		cvCopy := *d.curSnapshot.CurrentVote
+		d.curSnapshot.VoteActive = false
+		cvCopy.HasVoted = true
+		d.curSnapshot.Phases = append(d.curSnapshot.Phases, &cvCopy)
+
+		sendSnap(d)
+
+		log.Printf("draft '%s': phase# %d (%v) done\n", d.Setup.Name, i, p)
+
+		time.Sleep(time.Second * time.Duration(d.Setup.PhaseDelaySecs))
+	}
+
+	log.Printf("draft '%s' is done!", d.Setup.Name)
+	d.curSnapshot.DraftDone = true
+	d.curSnapshot.DraftEndedAt = time.Now()
+
+	/* final snap */
+	go sendSnap(d)
 }
 
 /* something changed, send current draft state to all active connections */
@@ -225,6 +233,8 @@ func updateSnapshot(d *draft) {
 		d.curSnapshot.Phases = make([]*phaseVote, 0)
 		d.curSnapshot.Type = WsMsgSnapshot
 	}
+
+	d.curSnapshot.DraftStarted = !d.waitingStart
 	d.curSnapshot.AdminConnected = d.adminWs != nil
 	d.curSnapshot.BlueConnected = d.blueWs != nil
 	d.curSnapshot.RedConnected = d.redWs != nil
@@ -277,13 +287,7 @@ func handleClientMessage(d *draft, ws *websocket.Conn, st sesType, m WsMsg) {
 	sendSnap(d)
 }
 
-func setupNextVote(d *draft) {
-	if d.curSnapshot.CurrentPhase >= len(d.phases) {
-		/* voting is done, ignore */
-		d.curSnapshot.DraftDone = true
-		return
-	}
-
+func setupNextVote(d *draft, pt phaseType) {
 	/* vote is automatically saved at end of timer in logic loop, dont copy here */
 	d.curSnapshot.VoteActive = true
 	d.curSnapshot.RedReady = false
@@ -292,7 +296,7 @@ func setupNextVote(d *draft) {
 	rc, bc := getFilteredChamps(d)
 
 	d.curSnapshot.CurrentVote = &phaseVote{
-		PhaseType:       d.phases[d.curSnapshot.CurrentPhase],
+		PhaseType:       pt,
 		ValidBlueValues: bc,
 		ValidRedValues:  rc,
 		PhaseNum:        d.curSnapshot.CurrentPhase,
@@ -422,8 +426,8 @@ func wsHandler(c echo.Context) error {
 		d.readonlyWss = append(d.readonlyWss, newWs)
 	}
 
-	/* update any connected clients that may be waiting for draft to start */
-	sendSnap(d)
+	/* update any connected clients that may be waiting for draft to start. dont do this blocking */
+	go sendSnap(d)
 
 	go wsClientLoop(d, newWs, st)
 	return c.NoContent(http.StatusSwitchingProtocols)
@@ -506,7 +510,7 @@ func getDraftState(d *draft, st sesType) *draftState {
 	ds := &draftState{
 		SessionType: st,
 		Setup:       d.Setup,
-		Phases:      nil, /* TODO */
+		Phases:      d.curSnapshot.Phases,
 	}
 	return ds
 }

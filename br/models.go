@@ -58,7 +58,6 @@ type draft struct {
 	wsWriteMutext sync.Mutex
 
 	waitingStart bool
-	phases       []phaseType
 	curSnapshot  *WsMsg
 }
 
@@ -74,10 +73,9 @@ const (
 )
 
 type draftState struct {
-	SessionType sesType     `json:"sessionType"`
-	Setup       *draftSetup `json:"setup"`
-	/* include copy of phases so client doesnt have to wait for first snap */
-	Phases []phaseVote `json:"phases"`
+	SessionType sesType      `json:"sessionType"`
+	Setup       *draftSetup  `json:"setup"`
+	Phases      []*phaseVote `json:"phases"`
 }
 
 type phaseType string
@@ -118,6 +116,7 @@ type WsMsg struct {
 	Phases             []*phaseVote `json:"phases"`
 	DraftDone          bool         `json:"draftDone"`
 	DraftStarted       bool         `json:"draftStarted"`
+	DraftCreatedAt     time.Time    `json:"draftCreatedAt"`
 	DraftStartedAt     time.Time    `json:"draftStartedAt"`
 	DraftEndedAt       time.Time    `json:"draftEndedAt"`
 	VotingStartedAt    time.Time
