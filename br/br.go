@@ -15,7 +15,7 @@ import (
 	"github.com/labstack/echo/middleware"
 )
 
-const draftLogicRateMs = 1000
+const draftLogicRateMs = 500
 
 var draftPhases = []phaseType{phaseTypeBan, phaseTypePick, phaseTypePick, phaseTypeBan, phaseTypePick}
 
@@ -137,19 +137,37 @@ func draftLogicLoop(d *draft) {
 
 		/* run draft phase timer server side. if both teams lock in , move on early */
 		donePhase := false
+		redVoted := false
+		blueVoted := false
 		for !donePhase {
 			time.Sleep(draftLogicRateMs * time.Millisecond)
 
 			voteDelta := time.Now().Sub(d.curSnapshot.VotingStartedAt)
 			timeLeft := float64(d.Setup.VotingSecs[i]) - voteDelta.Seconds()
 
-			donePhase = timeLeft <= 0 || (d.curSnapshot.CurrentVote.RedVoted && d.curSnapshot.CurrentVote.BlueVoted)
+			//needFullSnap := false
+			/* clients can only vote once. send a full snapshot for admin if so */
+			if redVoted != d.curSnapshot.CurrentVote.RedVoted {
+				//needFullSnap = true
+				redVoted = true
+			}
+			if blueVoted != d.curSnapshot.CurrentVote.BlueVoted {
+				//needFullSnap = true
+				blueVoted = true
+			}
+
+			donePhase = timeLeft <= 0 || (blueVoted && redVoted)
 			if !donePhase {
 				d.curSnapshot.VoteTimeLeft = float32(timeLeft)
 				d.curSnapshot.VoteTimeLeftPretty = fmt.Sprintf("%d", int(d.curSnapshot.VoteTimeLeft))
 
+				//if needFullSnap {
 				sendSnap(d)
+				//} else {
+				//	sendTimerUpdate(d)
+				//}
 			}
+
 		}
 
 		/* save the phase that just finished */
@@ -173,10 +191,7 @@ func draftLogicLoop(d *draft) {
 	go sendSnap(d)
 }
 
-/* something changed, send current draft state to all active connections */
-func sendSnap(d *draft) {
-	updateSnapshot(d)
-
+func getAllConnected(d *draft) []*websocket.Conn {
 	wsconns := make([]*websocket.Conn, 0)
 	if d.adminWs != nil {
 		wsconns = append(wsconns, d.adminWs)
@@ -193,10 +208,30 @@ func sendSnap(d *draft) {
 			wsconns = append(wsconns, roWs)
 		}
 	}
+	return wsconns
+}
 
+func sendTimerUpdate(d *draft) {
+	wsconns := getAllConnected(d)
 	d.wsWriteMutext.Lock()
 	for _, ws := range wsconns {
+		tm := WsMsgTimerOnly{
+			Type:               WsMsgSnapshotTimerOnly,
+			VoteTimeLeftPretty: d.curSnapshot.VoteTimeLeftPretty,
+		}
+		ws.WriteJSON(tm)
+	}
 
+	d.wsWriteMutext.Unlock()
+}
+
+/* something changed, send current draft state to all active connections */
+func sendSnap(d *draft) {
+	updateSnapshot(d)
+
+	wsconns := getAllConnected(d)
+	d.wsWriteMutext.Lock()
+	for _, ws := range wsconns {
 		/* dont send pending vote stuff to others that would leak picks early */
 		ss := *d.curSnapshot
 		if d.curSnapshot.VoteActive {

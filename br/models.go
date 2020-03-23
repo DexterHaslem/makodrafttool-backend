@@ -64,12 +64,13 @@ type draft struct {
 type wsMsgType int
 
 const (
-	WsMsgSnapshot    wsMsgType = 1
-	WsMsgVoteAction  wsMsgType = 2
-	WsMsgClientClose wsMsgType = 3
-	WsServerClose    wsMsgType = 4
-	WsClientReady    wsMsgType = 5
-	WsStartVoting    wsMsgType = 6
+	WsMsgSnapshot          wsMsgType = 1
+	WsMsgVoteAction        wsMsgType = 2
+	WsMsgClientClose       wsMsgType = 3
+	WsServerClose          wsMsgType = 4
+	WsClientReady          wsMsgType = 5
+	WsStartVoting          wsMsgType = 6
+	WsMsgSnapshotTimerOnly wsMsgType = 9
 )
 
 type draftState struct {
@@ -121,6 +122,11 @@ type WsMsg struct {
 	DraftEndedAt       time.Time    `json:"draftEndedAt"`
 	VotingStartedAt    time.Time
 	VoteTimeLeftPretty string `json:"voteTimeLeftPretty"`
+}
+
+type WsMsgTimerOnly struct {
+	Type               wsMsgType `json:"msgType"`
+	VoteTimeLeftPretty string    `json:"voteTimeLeftPretty"`
 }
 
 type Champion struct {
