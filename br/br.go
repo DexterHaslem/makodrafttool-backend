@@ -69,6 +69,8 @@ func createNewDraft(template *draftSetup) *draft {
 	d.IDs.Red = randomStr()
 	d.IDs.Results = randomStr()
 	d.readonlyWss = make([]*websocket.Conn, 0)
+
+	updateSnapshot(d)
 	d.curSnapshot.DraftCreatedAt = time.Now()
 
 	sessions = append(sessions, d)
@@ -112,7 +114,7 @@ func adminNewDraftHandler(c echo.Context) error {
 func draftLogicLoop(d *draft) {
 
 	/* wait for draft to kick off */
-	for {
+	for d.waitingStart {
 		time.Sleep(time.Millisecond * draftLogicRateMs)
 
 		/* TODO: if someone creates a draft but never starts it, check here to nuke after a timeout */
@@ -123,10 +125,6 @@ func draftLogicLoop(d *draft) {
 		if d.curSnapshot.DraftDone {
 			/* dont force d/c clients, let them view results */
 			return
-		}
-
-		if d.waitingStart {
-			continue
 		}
 	}
 
