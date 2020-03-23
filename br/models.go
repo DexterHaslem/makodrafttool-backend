@@ -71,6 +71,9 @@ const (
 	WsClientReady          wsMsgType = 5
 	WsStartVoting          wsMsgType = 6
 	WsMsgSnapshotTimerOnly wsMsgType = 9
+
+	WsMsgAdminPauseTimer wsMsgType = 11
+	WsMsgAdminResetTimer wsMsgType = 12
 )
 
 type draftState struct {

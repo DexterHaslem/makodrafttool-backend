@@ -139,33 +139,33 @@ func draftLogicLoop(d *draft) {
 		donePhase := false
 		redVoted := false
 		blueVoted := false
+
+		d.curSnapshot.VoteTimeLeft = float32(d.Setup.VotingSecs[i])
+
 		for !donePhase {
 			time.Sleep(draftLogicRateMs * time.Millisecond)
 
-			voteDelta := time.Now().Sub(d.curSnapshot.VotingStartedAt)
-			timeLeft := float64(d.Setup.VotingSecs[i]) - voteDelta.Seconds()
-
-			//needFullSnap := false
-			/* clients can only vote once. send a full snapshot for admin if so */
-			if redVoted != d.curSnapshot.CurrentVote.RedVoted {
-				//needFullSnap = true
-				redVoted = true
-			}
-			if blueVoted != d.curSnapshot.CurrentVote.BlueVoted {
-				//needFullSnap = true
-				blueVoted = true
-			}
-
-			donePhase = timeLeft <= 0 || (blueVoted && redVoted)
-			if !donePhase {
-				d.curSnapshot.VoteTimeLeft = float32(timeLeft)
+			if !d.curSnapshot.VotePaused {
+				d.curSnapshot.VoteTimeLeft -= float32(draftLogicRateMs) / 1000.0 // ms -> sec
 				d.curSnapshot.VoteTimeLeftPretty = fmt.Sprintf("%d", int(d.curSnapshot.VoteTimeLeft))
 
-				//if needFullSnap {
-				sendSnap(d)
-				//} else {
-				//	sendTimerUpdate(d)
-				//}
+				if redVoted != d.curSnapshot.CurrentVote.RedVoted {
+					//needFullSnap = true
+					redVoted = true
+				}
+				if blueVoted != d.curSnapshot.CurrentVote.BlueVoted {
+					//needFullSnap = true
+					blueVoted = true
+				}
+
+				donePhase = d.curSnapshot.VoteTimeLeft <= 0.01 || (blueVoted && redVoted)
+				if !donePhase {
+					//if needFullSnap {
+					sendSnap(d)
+					//} else {
+					//	sendTimerUpdate(d)
+					//}
+				}
 			}
 
 		}
@@ -295,21 +295,21 @@ func handleClientMessage(d *draft, ws *websocket.Conn, st sesType, m WsMsg) {
 	switch m.Type {
 	case WsClientReady:
 		/* do not toggle, just let them set it */
-		if ws == d.blueWs && !d.curSnapshot.BlueReady {
+		if st == blue && !d.curSnapshot.BlueReady {
 			d.curSnapshot.BlueReady = true
 			dirty = true
-		} else if ws == d.redWs && !d.curSnapshot.RedReady {
+		} else if st == red && !d.curSnapshot.RedReady {
 			d.curSnapshot.RedReady = true
 			dirty = true
 		}
 	case WsMsgVoteAction:
 		if d.curSnapshot.VoteActive && m.CurrentVote != nil {
-			if ws == d.blueWs && !d.curSnapshot.CurrentVote.BlueVoted {
+			if st == blue && !d.curSnapshot.CurrentVote.BlueVoted {
 				//log.Printf("got a vote from blue: %s", m.CurrentVote.VoteBlueValue)
 				dirty = true
 				d.curSnapshot.CurrentVote.BlueVoted = true
 				d.curSnapshot.CurrentVote.VoteBlueValue = m.CurrentVote.VoteBlueValue
-			} else if ws == d.redWs && !d.curSnapshot.CurrentVote.RedVoted {
+			} else if st == red && !d.curSnapshot.CurrentVote.RedVoted {
 				//log.Printf("got a vote from red: %s", m.CurrentVote.VoteRedValue)
 				dirty = true
 				d.curSnapshot.CurrentVote.RedVoted = true
@@ -317,9 +317,21 @@ func handleClientMessage(d *draft, ws *websocket.Conn, st sesType, m WsMsg) {
 			}
 		}
 	case WsStartVoting:
-		if ws == d.adminWs {
+		if st == admin {
 			dirty = true
 			d.waitingStart = false
+		}
+
+	case WsMsgAdminPauseTimer:
+		if st == admin && d.curSnapshot.CurrentVote != nil {
+			dirty = true
+			d.curSnapshot.VotePaused = !d.curSnapshot.VotePaused
+		}
+	case WsMsgAdminResetTimer:
+		if st == admin && d.curSnapshot.CurrentVote != nil {
+			dirty = true
+			d.curSnapshot.VotingStartedAt = time.Now()
+			d.curSnapshot.VoteTimeLeftPretty = fmt.Sprintf("%d", d.Setup.VotingSecs[d.curSnapshot.CurrentVote.PhaseNum])
 		}
 	}
 
