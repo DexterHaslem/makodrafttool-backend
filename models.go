@@ -1,4 +1,4 @@
-package br
+package main
 
 import (
 	"encoding/json"
@@ -177,4 +177,8 @@ func ReadMaps(fn string) ([]*GameMap, error) {
 	json.Unmarshal(bytes, &maps)
 
 	return maps, nil
+}
+
+func generateDraftReport(d *draft) string {
+	return ""
 }

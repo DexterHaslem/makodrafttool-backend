@@ -1,4 +1,4 @@
-package br
+package main
 
 import (
 	"crypto/sha512"
@@ -540,6 +540,20 @@ func setupEndpoints(e *echo.Echo) {
 	// create just one endpoint for ws, we can figure out what type of session it is by code, to make frontend easier
 	e.GET("/ws/:id", wsHandler)
 	e.GET("/draftState/:id", draftStateHandler)
+	e.GET("/draftReport/:id", draftReportHandler)
+}
+
+func draftReportHandler(c echo.Context) error {
+	d, _, err := findDraft(c)
+	if err != nil {
+		return c.String(http.StatusBadRequest, "no draft found")
+	}
+
+	reportTxt := generateDraftReport(d)
+
+	// echo has no way to cause attachment download with in memory data. very cool, do manually in header here
+	c.Response().Header().Set("Content-Disposition", "attachment; filename=draft.txt")
+	return c.Blob(http.StatusOK, "text/plain", []byte(reportTxt))
 }
 
 func getChampionsHandler(c echo.Context) error {
