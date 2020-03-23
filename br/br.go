@@ -15,7 +15,7 @@ import (
 	"github.com/labstack/echo/middleware"
 )
 
-const SnapshotSyncMs = 800
+const draftLogicRateMs = 500
 
 // dont do anything clever to map sessions, they are looked up by all three ids
 var sessions []*draft
@@ -61,9 +61,6 @@ func startDraft(template *draftSetup) *draft {
 	ns.wsWriteMutext = sync.Mutex{}
 	ns.IDs = &draftIDs{}
 	ns.Setup = template
-	if ns.Setup.VoteSecs < 2 {
-		ns.Setup.VoteSecs = 3
-	}
 	ns.IDs.Admin = randomStr()
 	ns.IDs.Blue = randomStr()
 	ns.IDs.Red = randomStr()
@@ -106,23 +103,60 @@ func adminNewDraftHandler(c echo.Context) error {
 
 func draftLogicLoop(d *draft) {
 	for {
-		time.Sleep(time.Millisecond * SnapshotSyncMs)
+		time.Sleep(time.Millisecond * draftLogicRateMs)
 
-		if d.curSnapshot != nil && d.curSnapshot.DraftDone {
+		if d.curSnapshot == nil {
+			continue
+		}
+
+		if d.curSnapshot.DraftDone {
 			/* dont force d/c clients, let them view results */
 			return
 		}
 
-		if d.curSnapshot != nil && d.curSnapshot.VoteActive {
-			voteDelta := time.Now().Sub(d.curSnapshot.VotingStartedAt)
-			if int(voteDelta.Seconds()) >= d.Setup.VoteSecs {
-				cvCopy := *d.curSnapshot.CurrentVote
-				d.curSnapshot.VoteActive = false
-				cvCopy.HasVoted = true
-				d.curSnapshot.Phases = append(d.curSnapshot.Phases, &cvCopy)
-			}
+		if d.waitingStart {
+			continue
 		}
-		sendSnap(d)
+
+		/* admin hit button, we've started drafting */
+		for i, p := range d.phases {
+			log.Printf("draft %s: phase# %d (%v) started\n", d.Setup.Name, i, p)
+
+			setupNextVote(d)
+			/* TODO: pause functionality is really hard
+			for d.curSnapshot.VotePaused {
+				time.Sleep(draftLogicRateMs * time.Millisecond)
+			} */
+
+			/* run draft phase timer server side. if both teams lock in , move on early */
+			for {
+				time.Sleep(100 * time.Millisecond)
+				voteDelta := time.Now().Sub(d.curSnapshot.VotingStartedAt)
+				timeLeft := float64(d.Setup.VotingSecs[i]) - voteDelta.Seconds()
+
+				donePhase := timeLeft <= 0 || (d.curSnapshot.CurrentVote.RedVoted && d.curSnapshot.CurrentVote.BlueVoted)
+				if donePhase {
+					cvCopy := *d.curSnapshot.CurrentVote
+					d.curSnapshot.VoteActive = false
+					cvCopy.HasVoted = true
+					d.curSnapshot.Phases = append(d.curSnapshot.Phases, &cvCopy)
+					d.curSnapshot.VoteTimeLeft = 0
+				} else {
+					d.curSnapshot.VoteTimeLeft = float32(timeLeft)
+				}
+
+				/* always send snapshot so vote goes in */
+				d.curSnapshot.VoteTimeLeftPretty = fmt.Sprintf("%.1f", d.curSnapshot.VoteTimeLeft)
+				sendSnap(d)
+
+				if donePhase {
+					break
+				}
+			}
+
+			log.Printf("draft %s: phase# %d (%v) done\n", d.Setup.Name, i, p)
+			time.Sleep(time.Second * 1)
+		}
 	}
 }
 
@@ -218,12 +252,12 @@ func handleClientMessage(d *draft, ws *websocket.Conn, st sesType, m WsMsg) {
 	case WsMsgVoteAction:
 		if d.curSnapshot.VoteActive && m.CurrentVote != nil {
 			if ws == d.blueWs {
-				log.Printf("got a vote from blue: %s", m.CurrentVote.VoteBlueValue)
+				//log.Printf("got a vote from blue: %s", m.CurrentVote.VoteBlueValue)
 
 				d.curSnapshot.CurrentVote.BlueVoted = true
 				d.curSnapshot.CurrentVote.VoteBlueValue = m.CurrentVote.VoteBlueValue
 			} else if ws == d.redWs {
-				log.Printf("got a vote from red: %s", m.CurrentVote.VoteRedValue)
+				//log.Printf("got a vote from red: %s", m.CurrentVote.VoteRedValue)
 
 				d.curSnapshot.CurrentVote.RedVoted = true
 				d.curSnapshot.CurrentVote.VoteRedValue = m.CurrentVote.VoteRedValue
@@ -231,8 +265,7 @@ func handleClientMessage(d *draft, ws *websocket.Conn, st sesType, m WsMsg) {
 		}
 	case WsStartVoting:
 		if ws == d.adminWs {
-			/* send notification to two captains to start countdown + pick timer */
-			setupNextVote(d)
+			d.waitingStart = false
 		}
 	}
 
@@ -247,7 +280,6 @@ func setupNextVote(d *draft) {
 	}
 
 	/* vote is automatically saved at end of timer in logic loop, dont copy here */
-
 	d.curSnapshot.VoteActive = true
 	d.curSnapshot.RedReady = false
 	d.curSnapshot.BlueReady = false
@@ -281,8 +313,6 @@ func getFilteredChamps(d *draft) ([]string, []string) {
 	retRed := make([]string, 0)
 	retBlue := make([]string, 0)
 
-	isPickPhase := d.curSnapshot.CurrentVote.PhaseType == phaseTypePick
-
 	for _, cn := range allChamps {
 		/* note not orthogonal
 		for each champ:
@@ -294,6 +324,9 @@ func getFilteredChamps(d *draft) ([]string, []string) {
 		*/
 		validRed := true
 		validBlue := true
+
+		/* TODO: this is a pain
+		isPickPhase := d.curSnapshot.CurrentVote.PhaseType == phaseTypePick
 
 		for _, pv := range d.curSnapshot.Phases {
 			if pv.VoteBlueValue == cn {
@@ -322,7 +355,7 @@ func getFilteredChamps(d *draft) ([]string, []string) {
 					}
 				}
 			}
-		}
+		} */
 
 		if validRed {
 			retRed = append(retRed, cn)
@@ -430,7 +463,7 @@ func setupEndpoints(e *echo.Echo) {
 	e.POST("/newdraft", adminNewDraftHandler)
 	e.GET("/champions", getChampionsHandler)
 	e.GET("/maps", getMapsHandler)
-	// create just one endpoint for ws, we can figure out what it is by code, to make frontend easier
+	// create just one endpoint for ws, we can figure out what type of session it is by code, to make frontend easier
 	e.GET("/ws/:id", wsHandler)
 	e.GET("/draftState/:id", draftStateHandler)
 }

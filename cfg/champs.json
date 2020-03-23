@@ -16,6 +16,11 @@
       "asset": "static/Freya_Portrait.png"
     },
     {
+      "name": "jamila",
+      "displayName": "Jamila",
+      "asset": "static/Jamila_Portrait.png"
+    },
+    {
       "name": "raigon",
       "displayName": "Raigon",
       "asset": "static/Raigon_Portrait.png"
@@ -83,6 +88,11 @@
       "asset": "static/Taya_Portrait.png"
     },
     {
+      "name": "shen_rao",
+      "displayName": "Shen Rao",
+      "asset": "static/Shen_Rao_Portrait.png"
+    },
+    {
       "name": "varesh",
       "displayName": "Varesh",
       "asset": "static/Varesh_Portrait.png"
@@ -123,6 +133,11 @@
       "name": "sirius",
       "displayName": "Sirius",
       "asset": "static/Sirius_Portrait.png"
+    },
+    {
+      "name": "ulric",
+      "displayName": "Ulric",
+      "asset": "static/Ulric_Portrait.png"
     },
     {
       "name": "zander",

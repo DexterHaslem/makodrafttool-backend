@@ -38,17 +38,15 @@ type draftIDs struct {
 
 // draft info all clients care about
 type draftSetup struct {
-	Name          string `json:"name"`
-	MapName       string `json:"mapName"`
-	BlueName      string `json:"blueName"`
-	RedName       string `json:"redName"`
-	VoteSecs      int    `json:"voteSecs"`
-	CountdownSecs int    `json:"countdownSecs"`
+	Name           string `json:"name"`
+	MapName        string `json:"mapName"`
+	BlueName       string `json:"blueName"`
+	RedName        string `json:"redName"`
+	VotingSecs     []int  `json:"votingSecs"`
+	PhaseDelaySecs int    `json:"phaseDelaySecs"`
 }
 
 type draft struct {
-	startedAt time.Time
-
 	Setup *draftSetup `json:"setup"`
 	IDs   *draftIDs   `json:"ids"`
 
@@ -59,8 +57,9 @@ type draft struct {
 
 	wsWriteMutext sync.Mutex
 
-	phases      []phaseType
-	curSnapshot *WsMsg
+	waitingStart bool
+	phases       []phaseType
+	curSnapshot  *WsMsg
 }
 
 type wsMsgType int
@@ -111,14 +110,18 @@ type WsMsg struct {
 	RedReady       bool `json:"redReady"`
 	BlueReady      bool `json:"blueReady"`
 
-	VoteActive      bool         `json:"voteActive"`
-	CurrentPhase    int          `json:"currentPhase"`
-	CurrentVote     *phaseVote   `json:"currentVote"`
-	Phases          []*phaseVote `json:"phases"`
-	DraftDone       bool         `json:"draftDone"`
-	DraftStartedAt  time.Time    `json:"draftStartedAt"`
-	DraftEndedAt    time.Time    `json:"draftEndedAt"`
-	VotingStartedAt time.Time
+	VoteActive         bool         `json:"voteActive"`
+	VotePaused         bool         `json:"votePaused"`
+	VoteTimeLeft       float32      `json:"voteTimeLeft"`
+	CurrentPhase       int          `json:"currentPhase"`
+	CurrentVote        *phaseVote   `json:"currentVote"`
+	Phases             []*phaseVote `json:"phases"`
+	DraftDone          bool         `json:"draftDone"`
+	DraftStarted       bool         `json:"draftStarted"`
+	DraftStartedAt     time.Time    `json:"draftStartedAt"`
+	DraftEndedAt       time.Time    `json:"draftEndedAt"`
+	VotingStartedAt    time.Time
+	VoteTimeLeftPretty string `json:"voteTimePretty"`
 }
 
 type Champion struct {
