@@ -300,7 +300,7 @@ func setupNextVote(d *draft, pt phaseType) {
 		PhaseNum:        d.curSnapshot.CurrentPhase,
 	}
 
-	log.Printf("starting vote # %d type = %v\n", d.curSnapshot.CurrentVote.PhaseNum, d.curSnapshot.CurrentVote.PhaseType)
+	// log.Printf("starting vote # %d type = %v\n", d.curSnapshot.CurrentVote.PhaseNum, d.curSnapshot.CurrentVote.PhaseType)
 	d.curSnapshot.CurrentPhase++
 	d.curSnapshot.VotingStartedAt = time.Now()
 }
