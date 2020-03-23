@@ -16,7 +16,6 @@ import (
 )
 
 const draftLogicRateMs = 1000
-const draftLogicTimerUpdateRateMs = 500
 
 var draftPhases = []phaseType{phaseTypeBan, phaseTypePick, phaseTypePick, phaseTypeBan, phaseTypePick}
 
@@ -137,20 +136,19 @@ func draftLogicLoop(d *draft) {
 		setupNextVote(d, p)
 
 		/* run draft phase timer server side. if both teams lock in , move on early */
-		for {
-			time.Sleep(draftLogicTimerUpdateRateMs * time.Millisecond)
+		donePhase := false
+		for !donePhase {
+			time.Sleep(draftLogicRateMs * time.Millisecond)
 
 			voteDelta := time.Now().Sub(d.curSnapshot.VotingStartedAt)
 			timeLeft := float64(d.Setup.VotingSecs[i]) - voteDelta.Seconds()
 
-			donePhase := timeLeft <= 0 || (d.curSnapshot.CurrentVote.RedVoted && d.curSnapshot.CurrentVote.BlueVoted)
+			donePhase = timeLeft <= 0 || (d.curSnapshot.CurrentVote.RedVoted && d.curSnapshot.CurrentVote.BlueVoted)
 			if !donePhase {
 				d.curSnapshot.VoteTimeLeft = float32(timeLeft)
-				d.curSnapshot.VoteTimeLeftPretty = fmt.Sprintf("%.1f", d.curSnapshot.VoteTimeLeft)
+				d.curSnapshot.VoteTimeLeftPretty = fmt.Sprintf("%d", int(d.curSnapshot.VoteTimeLeft))
 
 				sendSnap(d)
-			} else {
-				break
 			}
 		}
 
