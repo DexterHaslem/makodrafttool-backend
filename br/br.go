@@ -290,35 +290,42 @@ func wsClientLoop(d *draft, ws *websocket.Conn, st sesType) {
 }
 
 func handleClientMessage(d *draft, ws *websocket.Conn, st sesType, m WsMsg) {
+	dirty := false
+
 	switch m.Type {
 	case WsClientReady:
 		/* do not toggle, just let them set it */
-		if ws == d.blueWs {
+		if ws == d.blueWs && !d.curSnapshot.BlueReady {
 			d.curSnapshot.BlueReady = true
-		} else if ws == d.redWs {
+			dirty = true
+		} else if ws == d.redWs && !d.curSnapshot.RedReady {
 			d.curSnapshot.RedReady = true
+			dirty = true
 		}
 	case WsMsgVoteAction:
 		if d.curSnapshot.VoteActive && m.CurrentVote != nil {
 			if ws == d.blueWs && !d.curSnapshot.CurrentVote.BlueVoted {
 				//log.Printf("got a vote from blue: %s", m.CurrentVote.VoteBlueValue)
-
+				dirty = true
 				d.curSnapshot.CurrentVote.BlueVoted = true
 				d.curSnapshot.CurrentVote.VoteBlueValue = m.CurrentVote.VoteBlueValue
 			} else if ws == d.redWs && !d.curSnapshot.CurrentVote.RedVoted {
 				//log.Printf("got a vote from red: %s", m.CurrentVote.VoteRedValue)
-
+				dirty = true
 				d.curSnapshot.CurrentVote.RedVoted = true
 				d.curSnapshot.CurrentVote.VoteRedValue = m.CurrentVote.VoteRedValue
 			}
 		}
 	case WsStartVoting:
 		if ws == d.adminWs {
+			dirty = true
 			d.waitingStart = false
 		}
 	}
 
-	sendSnap(d)
+	if dirty {
+		sendSnap(d)
+	}
 }
 
 func setupNextVote(d *draft, pt phaseType) {
