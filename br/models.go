@@ -91,16 +91,16 @@ const (
 )
 
 type phaseVote struct {
-	PhaseType phaseType `json:"phaseType"`
-	HasVoted  bool      `json:"hasVoted"`
-	PhaseNum  int       `json:"phaseNum"`
-	RedVoted  bool      `json:"redHasVoted"`
-	BlueVoted bool      `json:"blueHasVoted"`
-	// below are trusted values stripped based on receiver
-	ValidRedValues  []string `json:"validRedValues"`
-	ValidBlueValues []string `json:"validBlueValues"`
-	VoteRedValue    string   `json:"voteRedValue"`
-	VoteBlueValue   string   `json:"voteBlueValue"`
+	PhaseType       phaseType `json:"phaseType"`
+	HasVoted        bool      `json:"hasVoted"`
+	PhaseNum        int       `json:"phaseNum"`
+	RedVoted        bool      `json:"redHasVoted"`
+	BlueVoted       bool      `json:"blueHasVoted"`
+	ValidRedValues  []string  `json:"validRedValues"`
+	ValidBlueValues []string  `json:"validBlueValues"`
+	VoteRedValue    string    `json:"voteRedValue"`
+	VoteBlueValue   string    `json:"voteBlueValue"`
+	AdminOverride   bool      `json:"adminOverride"`
 }
 
 type WsMsg struct {

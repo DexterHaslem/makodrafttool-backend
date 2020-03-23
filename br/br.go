@@ -330,12 +330,13 @@ func handleClientMessage(d *draft, st sesType, m WsMsg) {
 	case WsMsgAdminResetTimer:
 		if st == admin && d.curSnapshot.CurrentVote != nil {
 			dirty = true
-			d.curSnapshot.VotingStartedAt = time.Now()
-			d.curSnapshot.VoteTimeLeftPretty = fmt.Sprintf("%d", d.Setup.VotingSecs[d.curSnapshot.CurrentVote.PhaseNum])
+			d.curSnapshot.VoteTimeLeft = float32(d.Setup.VotingSecs[d.curSnapshot.CurrentVote.PhaseNum])
+			d.curSnapshot.VoteTimeLeftPretty = fmt.Sprintf("%d", int(d.curSnapshot.VoteTimeLeft))
 		}
 	case WsMsgAdminOverrideVote:
 		if st == admin {
 			dirty = true
+			m.CurrentVote.AdminOverride = true
 			/* just overwrite state with admin edit and propagate */
 			d.curSnapshot.Phases[m.CurrentVote.PhaseNum] = m.CurrentVote
 		}
