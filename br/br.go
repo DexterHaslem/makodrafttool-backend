@@ -196,28 +196,31 @@ func sendSnap(d *draft) {
 
 	d.wsWriteMutext.Lock()
 	for _, ws := range wsconns {
+
 		/* dont send pending vote stuff to others that would leak picks early */
 		ss := *d.curSnapshot
 		if d.curSnapshot.VoteActive {
 			cvc := *ss.CurrentVote
 			ss.CurrentVote = &cvc
+
+			/* TODO: if filtering is ever implemented server side, disable this code */
+			ss.CurrentVote.ValidRedValues = nil
+			ss.CurrentVote.ValidBlueValues = nil
+
 			if ws != d.adminWs {
 				if ws == d.redWs {
 					ss.CurrentVote.VoteBlueValue = ""
-					ss.CurrentVote.ValidBlueValues = nil
 				} else if ws == d.blueWs {
 					ss.CurrentVote.VoteRedValue = ""
-					ss.CurrentVote.ValidRedValues = nil
 				} else {
 					// r/o observer, remove all pending vote info
 					// well almost, need current phase type, so dont nuke
 					ss.CurrentVote.VoteBlueValue = ""
 					ss.CurrentVote.VoteRedValue = ""
-					ss.CurrentVote.ValidRedValues = nil
-					ss.CurrentVote.ValidBlueValues = nil
 				}
 			}
 		}
+
 		ws.WriteJSON(ss)
 	}
 	d.wsWriteMutext.Unlock()
@@ -262,12 +265,12 @@ func handleClientMessage(d *draft, ws *websocket.Conn, st sesType, m WsMsg) {
 		}
 	case WsMsgVoteAction:
 		if d.curSnapshot.VoteActive && m.CurrentVote != nil {
-			if ws == d.blueWs {
+			if ws == d.blueWs && !d.curSnapshot.CurrentVote.BlueVoted {
 				//log.Printf("got a vote from blue: %s", m.CurrentVote.VoteBlueValue)
 
 				d.curSnapshot.CurrentVote.BlueVoted = true
 				d.curSnapshot.CurrentVote.VoteBlueValue = m.CurrentVote.VoteBlueValue
-			} else if ws == d.redWs {
+			} else if ws == d.redWs && !d.curSnapshot.CurrentVote.RedVoted {
 				//log.Printf("got a vote from red: %s", m.CurrentVote.VoteRedValue)
 
 				d.curSnapshot.CurrentVote.RedVoted = true
