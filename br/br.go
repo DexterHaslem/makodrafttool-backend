@@ -285,11 +285,11 @@ func wsClientLoop(d *draft, ws *websocket.Conn, st sesType) {
 			break
 		}
 
-		handleClientMessage(d, ws, st, m)
+		handleClientMessage(d, st, m)
 	}
 }
 
-func handleClientMessage(d *draft, ws *websocket.Conn, st sesType, m WsMsg) {
+func handleClientMessage(d *draft, st sesType, m WsMsg) {
 	dirty := false
 
 	switch m.Type {
@@ -333,6 +333,12 @@ func handleClientMessage(d *draft, ws *websocket.Conn, st sesType, m WsMsg) {
 			d.curSnapshot.VotingStartedAt = time.Now()
 			d.curSnapshot.VoteTimeLeftPretty = fmt.Sprintf("%d", d.Setup.VotingSecs[d.curSnapshot.CurrentVote.PhaseNum])
 		}
+	case WsMsgAdminOverrideVote:
+		if st == admin {
+			dirty = true
+			/* just overwrite state with admin edit and propagate */
+			d.curSnapshot.Phases[m.CurrentVote.PhaseNum] = m.CurrentVote
+		}
 	}
 
 	if dirty {
@@ -346,12 +352,14 @@ func setupNextVote(d *draft, pt phaseType) {
 	d.curSnapshot.RedReady = false
 	d.curSnapshot.BlueReady = false
 
-	rc, bc := getFilteredChamps(d)
+	/* if filter logic implemented, these need to be re-added */
+	// rc, bc := getFilteredChamps(d)
 
 	d.curSnapshot.CurrentVote = &phaseVote{
-		PhaseType:       pt,
-		ValidBlueValues: bc,
-		ValidRedValues:  rc,
+		PhaseType: pt,
+		/* if filter logic implemented, these need to be re-added */
+		ValidBlueValues: nil,
+		ValidRedValues:  nil,
 		PhaseNum:        d.curSnapshot.CurrentPhase,
 	}
 
