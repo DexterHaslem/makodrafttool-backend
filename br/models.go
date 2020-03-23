@@ -121,7 +121,7 @@ type WsMsg struct {
 	DraftStartedAt     time.Time    `json:"draftStartedAt"`
 	DraftEndedAt       time.Time    `json:"draftEndedAt"`
 	VotingStartedAt    time.Time
-	VoteTimeLeftPretty string `json:"voteTimePretty"`
+	VoteTimeLeftPretty string `json:"voteTimeLeftPretty"`
 }
 
 type Champion struct {

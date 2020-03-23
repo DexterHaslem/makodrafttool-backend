@@ -15,7 +15,8 @@ import (
 	"github.com/labstack/echo/middleware"
 )
 
-const draftLogicRateMs = 500
+const draftLogicRateMs = 1000
+const draftLogicTimerUpdateRateMs = 500
 
 // dont do anything clever to map sessions, they are looked up by all three ids
 var sessions []*draft
@@ -33,7 +34,7 @@ func checkWebsocketOrigin(r *http.Request) bool {
 	return true
 }
 
-func upgradeWS(ctx echo.Context) *websocket.Conn {
+func upgradeWs(ctx echo.Context) *websocket.Conn {
 	ws, err := upgrader.Upgrade(ctx.Response(), ctx.Request(), nil)
 	if err != nil {
 		log.Fatal(err)
@@ -57,18 +58,22 @@ func randomStr() string {
 }
 
 func startDraft(template *draftSetup) *draft {
-	ns := &draft{}
-	ns.wsWriteMutext = sync.Mutex{}
-	ns.IDs = &draftIDs{}
-	ns.Setup = template
-	ns.IDs.Admin = randomStr()
-	ns.IDs.Blue = randomStr()
-	ns.IDs.Red = randomStr()
-	ns.IDs.Results = randomStr()
-	ns.readonlyWss = make([]*websocket.Conn, 0)
-	sessions = append(sessions, ns)
-	ns.phases = []phaseType{phaseTypeBan, phaseTypePick, phaseTypePick, phaseTypeBan, phaseTypePick}
-	return ns
+	d := &draft{}
+	d.wsWriteMutext = sync.Mutex{}
+	d.IDs = &draftIDs{}
+	d.Setup = template
+	d.IDs.Admin = randomStr()
+	d.IDs.Blue = randomStr()
+	d.IDs.Red = randomStr()
+	d.IDs.Results = randomStr()
+	d.readonlyWss = make([]*websocket.Conn, 0)
+
+	sessions = append(sessions, d)
+	d.phases = []phaseType{phaseTypeBan, phaseTypePick, phaseTypePick, phaseTypeBan, phaseTypePick}
+
+	/* wait for admin to kick off draft, otherwise timers start */
+	d.waitingStart = true
+	return d
 }
 
 func findDraft(ctx echo.Context) (*draft, sesType, error) {
@@ -114,6 +119,9 @@ func draftLogicLoop(d *draft) {
 			return
 		}
 
+		/* make sure to continue sending snapshots while waiting to start */
+		// sendSnap(d)
+
 		if d.waitingStart {
 			continue
 		}
@@ -130,7 +138,7 @@ func draftLogicLoop(d *draft) {
 
 			/* run draft phase timer server side. if both teams lock in , move on early */
 			for {
-				time.Sleep(100 * time.Millisecond)
+				time.Sleep(draftLogicTimerUpdateRateMs * time.Millisecond)
 				voteDelta := time.Now().Sub(d.curSnapshot.VotingStartedAt)
 				timeLeft := float64(d.Setup.VotingSecs[i]) - voteDelta.Seconds()
 
@@ -155,7 +163,8 @@ func draftLogicLoop(d *draft) {
 			}
 
 			log.Printf("draft %s: phase# %d (%v) done\n", d.Setup.Name, i, p)
-			time.Sleep(time.Second * 1)
+			/* TODO: use draft setup wait seconds */
+			time.Sleep(time.Second * 2)
 		}
 	}
 }
@@ -234,10 +243,6 @@ func wsClientLoop(d *draft, ws *websocket.Conn, st sesType) {
 
 		handleClientMessage(d, ws, st, m)
 	}
-}
-
-func getChampionDisplayName(name string) {
-
 }
 
 func handleClientMessage(d *draft, ws *websocket.Conn, st sesType, m WsMsg) {
@@ -399,25 +404,28 @@ func notifyClientDc(d *draft, ws *websocket.Conn) {
 }
 
 func wsHandler(c echo.Context) error {
-	s, st, err := findDraft(c)
+	d, st, err := findDraft(c)
 	if err != nil {
 		return err
 	}
 
 	// we got a good draft. connect ws
-	newWs := upgradeWS(c)
+	newWs := upgradeWs(c)
 	switch st {
 	case admin:
-		s.adminWs = newWs
+		d.adminWs = newWs
 	case red:
-		s.redWs = newWs
+		d.redWs = newWs
 	case blue:
-		s.blueWs = newWs
+		d.blueWs = newWs
 	case results:
-		s.readonlyWss = append(s.readonlyWss, newWs)
+		d.readonlyWss = append(d.readonlyWss, newWs)
 	}
 
-	go wsClientLoop(s, newWs, st)
+	/* update any connected clients that may be waiting for draft to start */
+	sendSnap(d)
+
+	go wsClientLoop(d, newWs, st)
 	return c.NoContent(http.StatusSwitchingProtocols)
 }
 
