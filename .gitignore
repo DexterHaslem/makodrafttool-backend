@@ -1,2 +1,6 @@
 .vscode/
 .idea/
+
+brdraft_linux_amd64
+brdraft_osx_amd64
+brdraft_windows_amd64.exe

@@ -502,7 +502,7 @@ func Start(cfgDir string, conn string) {
 	champFn := path.Join(cfgDir, "champs.json")
 	tryChamps, err := ReadChampions(champFn)
 	if err != nil {
-		fmt.Printf("failed to load champions from %s\n", champFn)
+		log.Fatalf("failed to load champions from %s\n", champFn)
 	} else {
 		champs = tryChamps
 		champsFlat = make([]*Champion, 0)
@@ -517,7 +517,7 @@ func Start(cfgDir string, conn string) {
 	mapsFn := path.Join(cfgDir, "maps.json")
 	tryMaps, err := ReadMaps(mapsFn)
 	if err != nil {
-		fmt.Printf("failed to load maps from %s\n", mapsFn)
+		log.Fatalf("failed to load maps from %s\n", mapsFn)
 	} else {
 		maps = tryMaps
 	}
@@ -541,6 +541,8 @@ func setupEndpoints(e *echo.Echo) {
 	e.GET("/ws/:id", wsHandler)
 	e.GET("/draftState/:id", draftStateHandler)
 	e.GET("/draftReport/:id", draftReportHandler)
+
+	e.Static("/static", "static")
 }
 
 func draftReportHandler(c echo.Context) error {

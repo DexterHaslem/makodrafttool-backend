@@ -1,0 +1,4 @@
+{
+  "listenOn": ":8081",
+  "configDir": "./cfg"
+}
