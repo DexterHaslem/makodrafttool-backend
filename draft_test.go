@@ -59,6 +59,8 @@ func createTestDraft() *draft {
 func TestDraftRules(t *testing.T) {
 	d := createTestDraft()
 
+	readGameJsons("./cfg")
+
 	lenAllChamps := len(champsFlat)
 	validChamps := validChampsForCurPhase(d)
 
@@ -78,9 +80,85 @@ func TestDraftRules(t *testing.T) {
 	}
 
 	// second vote, need to filter based on previous type and result
-	d.curSnapshot.CurrentVote.PhaseNum = 1
+	d.curSnapshot.CurrentPhase = 1
+	d.curSnapshot.CurrentVote.PhaseType = phaseTypeBan
 	validChamps = validChampsForCurPhase(d)
 	if len(validChamps.blue) < lenAllChamps || len(validChamps.red) < lenAllChamps {
 		t.Errorf("wrong number of champs")
+	}
+
+	// add first phase (ban) and add picks
+
+	p1banRed := "bakko"
+	p1banBlue := "croak"
+	d.curSnapshot.Phases = []*phaseVote{
+		&phaseVote{
+			PhaseType:     phaseTypeBan,
+			PhaseNum:      0,
+			VoteRedValue:  p1banRed,
+			VoteBlueValue: p1banBlue,
+		},
+	}
+
+	validChamps = validChampsForCurPhase(d)
+
+	for _, blueChamp := range validChamps.blue {
+		if blueChamp == p1banRed {
+			t.Errorf("blue able to pick red's ban")
+		}
+	}
+
+	for _, redChamp := range validChamps.red {
+		if redChamp == p1banBlue {
+			t.Errorf("red able to pick blue's ban")
+		}
+	}
+
+	// check picks on 4th phase, second ban
+	d.curSnapshot.CurrentPhase = 3 // zero indexed
+	d.curSnapshot.CurrentVote.PhaseType = phaseTypeBan
+
+	d.curSnapshot.Phases = []*phaseVote{
+		&phaseVote{
+			PhaseType:     phaseTypeBan,
+			PhaseNum:      0,
+			VoteRedValue:  "bakko",
+			VoteBlueValue: "zander",
+		},
+
+		&phaseVote{
+			PhaseType:     phaseTypePick,
+			PhaseNum:      1,
+			VoteRedValue:  "croak",
+			VoteBlueValue: "freya",
+		},
+
+		&phaseVote{
+			PhaseType:     phaseTypePick,
+			PhaseNum:      2,
+			VoteRedValue:  "jamila",
+			VoteBlueValue: "raigon",
+		},
+	}
+
+	validChamps = validChampsForCurPhase(d)
+
+	// first ensure red pick options are correct
+	for _, rc := range validChamps.red {
+		if rc == "zander" {
+			t.Fatalf("red was able to pick blue ban #1")
+		}
+
+		if rc == "croak" {
+			t.Fatalf("red was able to pick reds previous pick 1")
+		}
+
+		if rc == "jamila" {
+			t.Fatalf("red was able to pick reds previous pick 2")
+		}
+
+		if rc == "bakko" {
+			t.Fatalf("red was able to pick a ban already banned by red")
+		}
 	}
 }

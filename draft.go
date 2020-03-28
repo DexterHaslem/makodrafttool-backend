@@ -519,10 +519,7 @@ func wsHandler(c echo.Context) error {
 	return c.NoContent(http.StatusSwitchingProtocols)
 }
 
-// Start fires up the battlerite system. cfgDir sets where to look for config jsons, conn is the echo connection string, eg ":1234"
-func Start(cfgDir string, conn string) {
-	e := echo.New()
-
+func readGameJsons(cfgDir string) {
 	champFn := path.Join(cfgDir, "champs.json")
 	tryChamps, err := ReadChampions(champFn)
 	if err != nil {
@@ -545,6 +542,13 @@ func Start(cfgDir string, conn string) {
 	} else {
 		maps = tryMaps
 	}
+}
+
+// Start fires up the battlerite system. cfgDir sets where to look for config jsons, conn is the echo connection string, eg ":1234"
+func Start(cfgDir string, conn string) {
+	e := echo.New()
+
+	readGameJsons(cfgDir)
 
 	e.Use(middleware.CORSWithConfig(middleware.CORSConfig{
 		AllowOrigins: []string{"*"},
