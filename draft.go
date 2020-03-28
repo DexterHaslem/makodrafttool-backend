@@ -427,30 +427,34 @@ func validChampsForCurPhase(d *draft) *phaseChampSelections {
 		validBlue := true
 
 		for _, pv := range d.curSnapshot.Phases {
-			isBan := pv.PhaseType == phaseTypeBan
+			if inPickPhase {
+				isBan := pv.PhaseType == phaseTypeBan
 
-			if pv.VoteBlueValue == cn {
-				if isBan {
-					validRed = false
-					if validBlue {
-						validBlue = inPickPhase
+				if pv.VoteBlueValue == cn {
+					if isBan {
+						validRed = false
+						if validBlue {
+							validBlue = inPickPhase
+						}
+					} else {
+						validBlue = false
+						// does not affect other team
 					}
-				} else {
-					validBlue = false
-					// does not affect other team
 				}
-			}
 
-			if pv.VoteRedValue == cn {
-				if isBan {
-					validBlue = false
-					if validRed {
-						validRed = inPickPhase
+				if pv.VoteRedValue == cn {
+					if isBan {
+						validBlue = false
+						if validRed {
+							validRed = inPickPhase
+						}
+					} else {
+						validRed = false
+						// does not affect other team
 					}
-				} else {
-					validRed = false
-					// does not affect other team
 				}
+			} else {
+				// if we're in a ban phase just dont let us pick the same ban repeatedly, TODO ?
 			}
 		}
 
