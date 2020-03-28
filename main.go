@@ -36,7 +36,7 @@ func main() {
 		bytes, _ := ioutil.ReadAll(f)
 		json.Unmarshal(bytes, cfg)
 	} else {
-		log.Printf("%s not found, using default config")
+		log.Printf("%s not found, using default config", serverCfgFile)
 		cfg.ConfigDir = "./cfg"
 		cfg.ListenOn = ":8081"
 		log.Printf("%+v", cfg)

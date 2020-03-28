@@ -365,7 +365,7 @@ func setupNextVote(d *draft, pt phaseType) {
 	d.curSnapshot.BlueReady = false
 
 	/* if filter logic implemented, these need to be re-added */
-	// rc, bc := getFilteredChamps(d)
+	// rc, bc := validChampsForCurPhase(d)
 
 	d.curSnapshot.CurrentVote = &phaseVote{
 		PhaseType: pt,
@@ -380,7 +380,12 @@ func setupNextVote(d *draft, pt phaseType) {
 	d.curSnapshot.VotingStartedAt = time.Now()
 }
 
-func getFilteredChamps(d *draft) ([]string, []string) {
+type phaseChampSelections struct {
+	red  []string
+	blue []string
+}
+
+func validChampsForCurPhase(d *draft) *phaseChampSelections {
 	allChamps := make([]string, 0)
 
 	for _, cx := range champsFlat {
@@ -389,11 +394,16 @@ func getFilteredChamps(d *draft) ([]string, []string) {
 
 	/* first vote, nothing to filter yet */
 	if d.curSnapshot.CurrentVote == nil || d.curSnapshot.CurrentPhase < 1 {
-		return allChamps, allChamps
+		return &phaseChampSelections{
+			red:  allChamps,
+			blue: allChamps,
+		}
 	}
 
 	retRed := make([]string, 0)
 	retBlue := make([]string, 0)
+
+	isPickPhase := d.curSnapshot.CurrentVote.PhaseType == phaseTypePick
 
 	for _, cn := range allChamps {
 		/* note not orthogonal
@@ -407,12 +417,11 @@ func getFilteredChamps(d *draft) ([]string, []string) {
 		validRed := true
 		validBlue := true
 
-		/* TODO: this is a pain
-		isPickPhase := d.curSnapshot.CurrentVote.PhaseType == phaseTypePick
-
 		for _, pv := range d.curSnapshot.Phases {
+			isBan := pv.PhaseType == phaseTypeBan
+
 			if pv.VoteBlueValue == cn {
-				if pv.PhaseType == phaseTypeBan {
+				if isBan {
 					validRed = false
 					if validBlue {
 						validBlue = isPickPhase
@@ -424,8 +433,9 @@ func getFilteredChamps(d *draft) ([]string, []string) {
 					}
 				}
 			}
+
 			if pv.VoteRedValue == cn {
-				if pv.PhaseType == phaseTypeBan {
+				if isBan {
 					validBlue = false
 					if validRed {
 						validRed = isPickPhase
@@ -437,17 +447,20 @@ func getFilteredChamps(d *draft) ([]string, []string) {
 					}
 				}
 			}
-		} */
+		}
 
 		if validRed {
 			retRed = append(retRed, cn)
 		}
 		if validBlue {
-			retBlue = append(retRed, cn)
+			retBlue = append(retBlue, cn)
 		}
 	}
 
-	return retRed, retBlue
+	return &phaseChampSelections{
+		red:  retRed,
+		blue: retBlue,
+	}
 }
 
 func notifyClientDc(d *draft, ws *websocket.Conn) {
