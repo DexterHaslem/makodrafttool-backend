@@ -242,17 +242,15 @@ func sendSnap(d *draft) {
 			ss.CurrentVote.ValidRedValues = nil
 			ss.CurrentVote.ValidBlueValues = nil
 
-			if ws != d.adminWs {
-				if ws == d.redWs {
-					ss.CurrentVote.VoteBlueValue = ""
-				} else if ws == d.blueWs {
-					ss.CurrentVote.VoteRedValue = ""
-				} else {
-					// r/o observer, remove all pending vote info
-					// well almost, need current phase type, so dont nuke
-					ss.CurrentVote.VoteBlueValue = ""
-					ss.CurrentVote.VoteRedValue = ""
-				}
+			if ws == d.redWs {
+				ss.CurrentVote.VoteBlueValue = ""
+			} else if ws == d.blueWs {
+				ss.CurrentVote.VoteRedValue = ""
+			} else {
+				// r/o observer, remove all pending vote info
+				// well almost, need current phase type, so dont nuke
+				ss.CurrentVote.VoteBlueValue = ""
+				ss.CurrentVote.VoteRedValue = ""
 			}
 		}
 
