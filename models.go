@@ -80,6 +80,7 @@ const (
 type draftState struct {
 	SessionType sesType      `json:"sessionType"`
 	Setup       *draftSetup  `json:"setup"`
+	ViewerCode  string       `json:"viewerCode"'`
 	Phases      []*phaseVote `json:"phases"`
 }
 

@@ -599,6 +599,7 @@ func getDraftState(d *draft, st sesType) *draftState {
 	ds := &draftState{
 		SessionType: st,
 		Setup:       d.Setup,
+		ViewerCode:  d.IDs.Results,
 		Phases:      d.curSnapshot.Phases,
 	}
 	return ds
