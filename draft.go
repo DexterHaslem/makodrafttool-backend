@@ -15,7 +15,7 @@ import (
 	"github.com/labstack/echo/middleware"
 )
 
-const draftLogicRateMs = 750
+const draftLogicRateMs = 555
 
 var draftPhases = []phaseType{phaseTypeBan, phaseTypePick, phaseTypePick, phaseTypeBan, phaseTypePick}
 
@@ -243,29 +243,25 @@ func sendSnap(d *draft) {
 		ss := *d.curSnapshot
 
 		if d.curSnapshot.VoteActive {
-			// these are big list, dont always send
-			ss.CurrentVote.ValidRedValues = nil
-			ss.CurrentVote.ValidBlueValues = nil
 
 			cvc := *ss.CurrentVote
 			ss.CurrentVote = &cvc
 
 			valid := validChampsForCurPhase(d)
+			// these are big, but always send incase someone refreshes in mid vote
+			ss.CurrentVote.ValidRedValues = valid.red
+			ss.CurrentVote.ValidBlueValues = valid.blue
 
 			if ws == d.redWs {
 				ss.CurrentVote.VoteBlueValue = ""
-				ss.CurrentVote.ValidRedValues = valid.red
 			} else if ws == d.blueWs {
 				ss.CurrentVote.VoteRedValue = ""
-				ss.CurrentVote.ValidBlueValues = valid.blue
 			} else {
 				// r/o observer, remove all pending vote info
 				// well almost, need current phase type, so dont nuke
 				ss.CurrentVote.VoteBlueValue = ""
 				ss.CurrentVote.VoteRedValue = ""
 			}
-		} else {
-			ss.CurrentVote = nil
 		}
 
 		ws.WriteJSON(ss)
