@@ -144,6 +144,8 @@ func TestDraftRules(t *testing.T) {
 	validChamps = validChampsForCurPhase(d)
 
 	// first ensure red pick options are correct
+	redGotRaigon := false
+	redGotFreya := false
 	for _, rc := range validChamps.red {
 		if rc == "zander" {
 			t.Fatalf("red was able to pick blue ban #1")
@@ -160,5 +162,20 @@ func TestDraftRules(t *testing.T) {
 		if rc == "bakko" {
 			t.Fatalf("red was able to pick a ban already banned by red")
 		}
+
+		if rc == "raigon" {
+			redGotRaigon = true
+		}
+		if rc == "freya" {
+			redGotFreya = true
+		}
 	}
+
+	if !redGotFreya || !redGotRaigon {
+		t.Fatalf("red was unable to pick a valid pick because blue picked it")
+	}
+
+	// now check blue options are ok
+	// for _, bc := range validChamps.blue {
+	// }
 }

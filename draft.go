@@ -412,7 +412,7 @@ func validChampsForCurPhase(d *draft) *phaseChampSelections {
 	retRed := make([]string, 0)
 	retBlue := make([]string, 0)
 
-	isPickPhase := d.curSnapshot.CurrentVote.PhaseType == phaseTypePick
+	inPickPhase := d.curSnapshot.CurrentVote.PhaseType == phaseTypePick
 
 	for _, cn := range allChamps {
 		/* note not orthogonal
@@ -433,13 +433,11 @@ func validChampsForCurPhase(d *draft) *phaseChampSelections {
 				if isBan {
 					validRed = false
 					if validBlue {
-						validBlue = isPickPhase
+						validBlue = inPickPhase
 					}
 				} else {
 					validBlue = false
-					if validRed {
-						validRed = isPickPhase
-					}
+					// does not affect other team
 				}
 			}
 
@@ -447,13 +445,11 @@ func validChampsForCurPhase(d *draft) *phaseChampSelections {
 				if isBan {
 					validBlue = false
 					if validRed {
-						validRed = isPickPhase
+						validRed = inPickPhase
 					}
 				} else {
 					validRed = false
-					if validBlue {
-						validBlue = isPickPhase
-					}
+					// does not affect other team
 				}
 			}
 		}
