@@ -116,6 +116,7 @@ type WsMsg struct {
 	VoteActive         bool         `json:"voteActive"`
 	VotePaused         bool         `json:"votePaused"`
 	VoteTimeLeft       float32      `json:"voteTimeLeft"`
+	VoteUnlimitedTime  bool         `json:"voteUnlimitedTime"`
 	CurrentPhase       int          `json:"currentPhase"`
 	CurrentVote        *phaseVote   `json:"currentVote"`
 	Phases             []*phaseVote `json:"phases"`

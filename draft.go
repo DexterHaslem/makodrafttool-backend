@@ -15,7 +15,7 @@ import (
 	"github.com/labstack/echo/middleware"
 )
 
-const draftLogicRateMs = 500
+const draftLogicRateMs = 750
 
 var draftPhases = []phaseType{phaseTypeBan, phaseTypePick, phaseTypePick, phaseTypeBan, phaseTypePick}
 
@@ -140,14 +140,17 @@ func draftLogicLoop(d *draft) {
 		redVoted := false
 		blueVoted := false
 
+		d.curSnapshot.VoteUnlimitedTime = d.Setup.VotingSecs[i] == 0
 		d.curSnapshot.VoteTimeLeft = float32(d.Setup.VotingSecs[i])
 
 		for !donePhase {
 			time.Sleep(draftLogicRateMs * time.Millisecond)
 
 			if !d.curSnapshot.VotePaused {
-				d.curSnapshot.VoteTimeLeft -= float32(draftLogicRateMs) / 1000.0 // ms -> sec
-				d.curSnapshot.VoteTimeLeftPretty = fmt.Sprintf("%d", int(d.curSnapshot.VoteTimeLeft))
+				if !d.curSnapshot.VoteUnlimitedTime {
+					d.curSnapshot.VoteTimeLeft -= float32(draftLogicRateMs) / 1000.0 // ms -> sec
+					d.curSnapshot.VoteTimeLeftPretty = fmt.Sprintf("%d", int(d.curSnapshot.VoteTimeLeft))
+				}
 
 				if redVoted != d.curSnapshot.CurrentVote.RedVoted {
 					//needFullSnap = true
@@ -158,7 +161,8 @@ func draftLogicLoop(d *draft) {
 					blueVoted = true
 				}
 
-				donePhase = d.curSnapshot.VoteTimeLeft <= 0.01 || (blueVoted && redVoted)
+				donePhase = (!d.curSnapshot.VoteUnlimitedTime && d.curSnapshot.VoteTimeLeft <= 0.01) || (blueVoted && redVoted)
+
 				if !donePhase {
 					//if needFullSnap {
 					sendSnap(d)
@@ -167,7 +171,6 @@ func draftLogicLoop(d *draft) {
 					//}
 				}
 			}
-
 		}
 
 		/* save the phase that just finished */
@@ -180,7 +183,9 @@ func draftLogicLoop(d *draft) {
 
 		log.Printf("draft '%s': phase# %d (%v) done\n", d.Setup.Name, i, p)
 
-		time.Sleep(time.Second * time.Duration(d.Setup.PhaseDelaySecs))
+		if i < len(draftPhases) {
+			time.Sleep(time.Second * time.Duration(d.Setup.PhaseDelaySecs))
+		}
 	}
 
 	log.Printf("draft '%s' is done!", d.Setup.Name)
