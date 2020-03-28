@@ -235,28 +235,37 @@ func sendSnap(d *draft) {
 	updateSnapshot(d)
 
 	wsconns := getAllConnected(d)
+
 	d.wsWriteMutext.Lock()
+
 	for _, ws := range wsconns {
 		/* dont send pending vote stuff to others that would leak picks early */
 		ss := *d.curSnapshot
-		if d.curSnapshot.VoteActive {
-			cvc := *ss.CurrentVote
-			ss.CurrentVote = &cvc
 
-			/* TODO: if filtering is ever implemented server side, disable this code */
+		if d.curSnapshot.VoteActive {
+			// these are big list, dont always send
 			ss.CurrentVote.ValidRedValues = nil
 			ss.CurrentVote.ValidBlueValues = nil
 
+			cvc := *ss.CurrentVote
+			ss.CurrentVote = &cvc
+
+			valid := validChampsForCurPhase(d)
+
 			if ws == d.redWs {
 				ss.CurrentVote.VoteBlueValue = ""
+				ss.CurrentVote.ValidRedValues = valid.red
 			} else if ws == d.blueWs {
 				ss.CurrentVote.VoteRedValue = ""
+				ss.CurrentVote.ValidBlueValues = valid.blue
 			} else {
 				// r/o observer, remove all pending vote info
 				// well almost, need current phase type, so dont nuke
 				ss.CurrentVote.VoteBlueValue = ""
 				ss.CurrentVote.VoteRedValue = ""
 			}
+		} else {
+			ss.CurrentVote = nil
 		}
 
 		ws.WriteJSON(ss)
