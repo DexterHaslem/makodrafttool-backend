@@ -300,6 +300,12 @@ func handleClientMessage(d *draft, st sesType, m WsMsg) {
 			d.curSnapshot.RedReady = true
 			dirty = true
 		}
+
+		// in wait phase, start as soon as both captains ready
+		if d.waitingStart && d.curSnapshot.BlueReady && d.curSnapshot.RedReady {
+			d.waitingStart = false
+		}
+
 	case WsMsgVoteAction:
 		if d.curSnapshot.VoteActive && m.CurrentVote != nil {
 			if st == blue && !d.curSnapshot.CurrentVote.BlueVoted {
@@ -315,6 +321,8 @@ func handleClientMessage(d *draft, st sesType, m WsMsg) {
 			}
 		}
 	case WsStartVoting:
+		// NOTE: this is removed on UI, drafting starts when both captains ready now
+		// this removes need of admin
 		if st == admin {
 			dirty = true
 			d.waitingStart = false
