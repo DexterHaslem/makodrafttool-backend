@@ -100,6 +100,7 @@ func TestDraftRules(t *testing.T) {
 		},
 	}
 
+	/* all champs enabled during ban for now
 	validChamps = validChampsForCurPhase(d)
 
 	for _, blueChamp := range validChamps.blue {
@@ -113,10 +114,10 @@ func TestDraftRules(t *testing.T) {
 			t.Errorf("red able to pick blue's ban")
 		}
 	}
-
-	// check picks on 4th phase, second ban
+	*/
+	// check picks after some bans. this isnt valid order but it tests bans
 	d.curSnapshot.CurrentPhase = 3 // zero indexed
-	d.curSnapshot.CurrentVote.PhaseType = phaseTypeBan
+	d.curSnapshot.CurrentVote.PhaseType = phaseTypePick
 
 	d.curSnapshot.Phases = []*phaseVote{
 		&phaseVote{

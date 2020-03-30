@@ -417,7 +417,7 @@ func validChampsForCurPhase(d *draft) *phaseChampSelections {
 				- if same team already picked, remove
 				- if opposite team banned, remove
 			ban phase:
-				- if same team already banned, remove
+				- if same team already banned, remove (not done atm)
 		*/
 		validRed := true
 		validBlue := true
