@@ -618,11 +618,17 @@ func draftStateHandler(c echo.Context) error {
 }
 
 func getDraftState(d *draft, st sesType) *draftState {
-	ds := &draftState{
-		SessionType: st,
-		Setup:       d.Setup,
-		ViewerCode:  d.IDs.Results,
-		Phases:      d.curSnapshot.Phases,
+	ds := &draftState{}
+	if d == nil {
+		return ds
 	}
+
+	ds.SessionType = st
+	ds.Setup = d.Setup
+	ds.ViewerCode = d.IDs.Results
+	if d.curSnapshot != nil {
+		ds.Phases = d.curSnapshot.Phases
+	}
+
 	return ds
 }
