@@ -127,6 +127,8 @@ func draftLogicLoop(d *draft) {
 		}
 	}
 
+	d.Snap.DraftStartedAt = time.Now()
+
 	log.Printf("admin started draft '%s'\n", d.Setup.Name)
 
 	/* admin hit button, we've started drafting */

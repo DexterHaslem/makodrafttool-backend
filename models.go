@@ -191,7 +191,7 @@ func generateDraftReport(d *draft) (string, error) {
 		"View code: {{.IDs.Results}}\n" +
 		"Votes:\n" +
 		"{{range .Snap.Phases}}" +
-		"Type: {{.PhaseType}} Red: {{.VoteRedValue}} Blue: {{.VoteBlueValue}}\n" +
+		"\t{{.PhaseType}} - Red: {{.VoteRedValue}} Blue: {{.VoteBlueValue}}\n" +
 		"{{end}}"
 
 	t, err := template.New("report").Parse(tmpl)
