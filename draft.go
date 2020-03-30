@@ -70,7 +70,7 @@ func createNewDraft(template *draftSetup) *draft {
 	d.readonlyWss = make([]*websocket.Conn, 0)
 
 	updateSnapshot(d)
-	d.curSnapshot.DraftCreatedAt = time.Now()
+	d.Snap.DraftCreatedAt = time.Now()
 
 	sessions = append(sessions, d)
 
@@ -117,11 +117,11 @@ func draftLogicLoop(d *draft) {
 		time.Sleep(time.Millisecond * draftLogicRateMs)
 
 		/* TODO: if someone creates a draft but never starts it, check here to nuke after a timeout */
-		if d.curSnapshot == nil {
+		if d.Snap == nil {
 			continue
 		}
 
-		if d.curSnapshot.DraftDone {
+		if d.Snap.DraftDone {
 			/* dont force d/c clients, let them view results */
 			return
 		}
@@ -140,28 +140,28 @@ func draftLogicLoop(d *draft) {
 		redVoted := false
 		blueVoted := false
 
-		d.curSnapshot.VoteUnlimitedTime = d.Setup.VotingSecs[i] == 0
-		d.curSnapshot.VoteTimeLeft = float32(d.Setup.VotingSecs[i])
+		d.Snap.VoteUnlimitedTime = d.Setup.VotingSecs[i] == 0
+		d.Snap.VoteTimeLeft = float32(d.Setup.VotingSecs[i])
 
 		for !donePhase {
 			time.Sleep(draftLogicRateMs * time.Millisecond)
 
-			if !d.curSnapshot.VotePaused {
-				if !d.curSnapshot.VoteUnlimitedTime {
-					d.curSnapshot.VoteTimeLeft -= float32(draftLogicRateMs) / 1000.0 // ms -> sec
-					d.curSnapshot.VoteTimeLeftPretty = fmt.Sprintf("%d", int(d.curSnapshot.VoteTimeLeft))
+			if !d.Snap.VotePaused {
+				if !d.Snap.VoteUnlimitedTime {
+					d.Snap.VoteTimeLeft -= float32(draftLogicRateMs) / 1000.0 // ms -> sec
+					d.Snap.VoteTimeLeftPretty = fmt.Sprintf("%d", int(d.Snap.VoteTimeLeft))
 				}
 
-				if redVoted != d.curSnapshot.CurrentVote.RedVoted {
+				if redVoted != d.Snap.CurrentVote.RedVoted {
 					//needFullSnap = true
 					redVoted = true
 				}
-				if blueVoted != d.curSnapshot.CurrentVote.BlueVoted {
+				if blueVoted != d.Snap.CurrentVote.BlueVoted {
 					//needFullSnap = true
 					blueVoted = true
 				}
 
-				donePhase = (!d.curSnapshot.VoteUnlimitedTime && d.curSnapshot.VoteTimeLeft <= 0.01) || (blueVoted && redVoted)
+				donePhase = (!d.Snap.VoteUnlimitedTime && d.Snap.VoteTimeLeft <= 0.01) || (blueVoted && redVoted)
 
 				if !donePhase {
 					//if needFullSnap {
@@ -174,10 +174,10 @@ func draftLogicLoop(d *draft) {
 		}
 
 		/* save the phase that just finished */
-		cvCopy := *d.curSnapshot.CurrentVote
-		d.curSnapshot.VoteActive = false
+		cvCopy := *d.Snap.CurrentVote
+		d.Snap.VoteActive = false
 		cvCopy.HasVoted = true
-		d.curSnapshot.Phases = append(d.curSnapshot.Phases, &cvCopy)
+		d.Snap.Phases = append(d.Snap.Phases, &cvCopy)
 
 		sendSnap(d)
 
@@ -189,8 +189,8 @@ func draftLogicLoop(d *draft) {
 	}
 
 	log.Printf("draft '%s' is done!", d.Setup.Name)
-	d.curSnapshot.DraftDone = true
-	d.curSnapshot.DraftEndedAt = time.Now()
+	d.Snap.DraftDone = true
+	d.Snap.DraftEndedAt = time.Now()
 
 	/* final snap */
 	go sendSnap(d)
@@ -222,7 +222,7 @@ func sendTimerUpdate(d *draft) {
 	for _, ws := range wsconns {
 		tm := WsMsgTimerOnly{
 			Type:               WsMsgSnapshotTimerOnly,
-			VoteTimeLeftPretty: d.curSnapshot.VoteTimeLeftPretty,
+			VoteTimeLeftPretty: d.Snap.VoteTimeLeftPretty,
 		}
 		ws.WriteJSON(tm)
 	}
@@ -240,9 +240,9 @@ func sendSnap(d *draft) {
 
 	for _, ws := range wsconns {
 		/* dont send pending vote stuff to others that would leak picks early */
-		ss := *d.curSnapshot
+		ss := *d.Snap
 
-		if d.curSnapshot.VoteActive {
+		if d.Snap.VoteActive {
 
 			cvc := *ss.CurrentVote
 			ss.CurrentVote = &cvc
@@ -270,17 +270,17 @@ func sendSnap(d *draft) {
 }
 
 func updateSnapshot(d *draft) {
-	if d.curSnapshot == nil {
-		d.curSnapshot = &WsMsg{}
-		d.curSnapshot.Phases = make([]*phaseVote, 0)
-		d.curSnapshot.Type = WsMsgSnapshot
+	if d.Snap == nil {
+		d.Snap = &WsMsg{}
+		d.Snap.Phases = make([]*phaseVote, 0)
+		d.Snap.Type = WsMsgSnapshot
 	}
 
-	d.curSnapshot.DraftStarted = !d.waitingStart
-	d.curSnapshot.AdminConnected = d.adminWs != nil
-	d.curSnapshot.BlueConnected = d.blueWs != nil
-	d.curSnapshot.RedConnected = d.redWs != nil
-	d.curSnapshot.ResultsViewers = len(d.readonlyWss)
+	d.Snap.DraftStarted = !d.waitingStart
+	d.Snap.AdminConnected = d.adminWs != nil
+	d.Snap.BlueConnected = d.blueWs != nil
+	d.Snap.RedConnected = d.redWs != nil
+	d.Snap.ResultsViewers = len(d.readonlyWss)
 }
 
 func wsClientLoop(d *draft, ws *websocket.Conn, st sesType) {
@@ -303,31 +303,31 @@ func handleClientMessage(d *draft, st sesType, m WsMsg) {
 	switch m.Type {
 	case WsClientReady:
 		/* do not toggle, just let them set it */
-		if st == blue && !d.curSnapshot.BlueReady {
-			d.curSnapshot.BlueReady = true
+		if st == blue && !d.Snap.BlueReady {
+			d.Snap.BlueReady = true
 			dirty = true
-		} else if st == red && !d.curSnapshot.RedReady {
-			d.curSnapshot.RedReady = true
+		} else if st == red && !d.Snap.RedReady {
+			d.Snap.RedReady = true
 			dirty = true
 		}
 
 		// in wait phase, start as soon as both captains ready
-		if d.waitingStart && d.curSnapshot.BlueReady && d.curSnapshot.RedReady {
+		if d.waitingStart && d.Snap.BlueReady && d.Snap.RedReady {
 			d.waitingStart = false
 		}
 
 	case WsMsgVoteAction:
-		if d.curSnapshot.VoteActive && m.CurrentVote != nil {
-			if st == blue && !d.curSnapshot.CurrentVote.BlueVoted {
+		if d.Snap.VoteActive && m.CurrentVote != nil {
+			if st == blue && !d.Snap.CurrentVote.BlueVoted {
 				//log.Printf("got a vote from blue: %s", m.CurrentVote.VoteBlueValue)
 				dirty = true
-				d.curSnapshot.CurrentVote.BlueVoted = true
-				d.curSnapshot.CurrentVote.VoteBlueValue = m.CurrentVote.VoteBlueValue
-			} else if st == red && !d.curSnapshot.CurrentVote.RedVoted {
+				d.Snap.CurrentVote.BlueVoted = true
+				d.Snap.CurrentVote.VoteBlueValue = m.CurrentVote.VoteBlueValue
+			} else if st == red && !d.Snap.CurrentVote.RedVoted {
 				//log.Printf("got a vote from red: %s", m.CurrentVote.VoteRedValue)
 				dirty = true
-				d.curSnapshot.CurrentVote.RedVoted = true
-				d.curSnapshot.CurrentVote.VoteRedValue = m.CurrentVote.VoteRedValue
+				d.Snap.CurrentVote.RedVoted = true
+				d.Snap.CurrentVote.VoteRedValue = m.CurrentVote.VoteRedValue
 			}
 		}
 	case WsStartVoting:
@@ -339,22 +339,22 @@ func handleClientMessage(d *draft, st sesType, m WsMsg) {
 		}
 
 	case WsMsgAdminPauseTimer:
-		if st == admin && d.curSnapshot.CurrentVote != nil {
+		if st == admin && d.Snap.CurrentVote != nil {
 			dirty = true
-			d.curSnapshot.VotePaused = !d.curSnapshot.VotePaused
+			d.Snap.VotePaused = !d.Snap.VotePaused
 		}
 	case WsMsgAdminResetTimer:
-		if st == admin && d.curSnapshot.CurrentVote != nil {
+		if st == admin && d.Snap.CurrentVote != nil {
 			dirty = true
-			d.curSnapshot.VoteTimeLeft = float32(d.Setup.VotingSecs[d.curSnapshot.CurrentVote.PhaseNum])
-			d.curSnapshot.VoteTimeLeftPretty = fmt.Sprintf("%d", int(d.curSnapshot.VoteTimeLeft))
+			d.Snap.VoteTimeLeft = float32(d.Setup.VotingSecs[d.Snap.CurrentVote.PhaseNum])
+			d.Snap.VoteTimeLeftPretty = fmt.Sprintf("%d", int(d.Snap.VoteTimeLeft))
 		}
 	case WsMsgAdminOverrideVote:
 		if st == admin {
 			dirty = true
 			m.CurrentVote.AdminOverride = true
 			/* just overwrite state with admin edit and propagate */
-			d.curSnapshot.Phases[m.CurrentVote.PhaseNum] = m.CurrentVote
+			d.Snap.Phases[m.CurrentVote.PhaseNum] = m.CurrentVote
 		}
 	}
 
@@ -365,24 +365,24 @@ func handleClientMessage(d *draft, st sesType, m WsMsg) {
 
 func setupNextVote(d *draft, pt phaseType) {
 	/* vote is automatically saved at end of timer in logic loop, dont copy here */
-	d.curSnapshot.VoteActive = true
-	d.curSnapshot.RedReady = false
-	d.curSnapshot.BlueReady = false
+	d.Snap.VoteActive = true
+	d.Snap.RedReady = false
+	d.Snap.BlueReady = false
 
 	/* if filter logic implemented, these need to be re-added */
 	// rc, bc := validChampsForCurPhase(d)
 
-	d.curSnapshot.CurrentVote = &phaseVote{
+	d.Snap.CurrentVote = &phaseVote{
 		PhaseType: pt,
 		/* if filter logic implemented, these need to be re-added */
 		ValidBlueValues: nil,
 		ValidRedValues:  nil,
-		PhaseNum:        d.curSnapshot.CurrentPhase,
+		PhaseNum:        d.Snap.CurrentPhase,
 	}
 
-	// log.Printf("starting vote # %d type = %v\n", d.curSnapshot.CurrentVote.PhaseNum, d.curSnapshot.CurrentVote.PhaseType)
-	d.curSnapshot.CurrentPhase++
-	d.curSnapshot.VotingStartedAt = time.Now()
+	// log.Printf("starting vote # %d type = %v\n", d.Snap.CurrentVote.PhaseNum, d.Snap.CurrentVote.PhaseType)
+	d.Snap.CurrentPhase++
+	d.Snap.VotingStartedAt = time.Now()
 }
 
 type phaseChampSelections struct {
@@ -398,7 +398,7 @@ func validChampsForCurPhase(d *draft) *phaseChampSelections {
 	}
 
 	/* first vote, nothing to filter yet */
-	if d.curSnapshot.CurrentVote == nil || d.curSnapshot.CurrentPhase < 1 {
+	if d.Snap.CurrentVote == nil || d.Snap.CurrentPhase < 1 {
 		return &phaseChampSelections{
 			red:  allChamps,
 			blue: allChamps,
@@ -408,7 +408,7 @@ func validChampsForCurPhase(d *draft) *phaseChampSelections {
 	retRed := make([]string, 0)
 	retBlue := make([]string, 0)
 
-	inPickPhase := d.curSnapshot.CurrentVote.PhaseType == phaseTypePick
+	inPickPhase := d.Snap.CurrentVote.PhaseType == phaseTypePick
 
 	for _, cn := range allChamps {
 		/* note not orthogonal
@@ -422,7 +422,7 @@ func validChampsForCurPhase(d *draft) *phaseChampSelections {
 		validRed := true
 		validBlue := true
 
-		for _, pv := range d.curSnapshot.Phases {
+		for _, pv := range d.Snap.Phases {
 			if inPickPhase {
 				isBan := pv.PhaseType == phaseTypeBan
 
@@ -584,8 +584,11 @@ func draftReportHandler(c echo.Context) error {
 		return c.String(http.StatusBadRequest, "no draft found")
 	}
 
-	reportTxt := generateDraftReport(d)
+	reportTxt, err := generateDraftReport(d)
 
+	if err != nil {
+		return c.String(http.StatusBadRequest, err.Error())
+	}
 	// echo has no way to cause attachment download with in memory data. very cool, do manually in header here
 	c.Response().Header().Set("Content-Disposition", "attachment; filename=draft.txt")
 	return c.Blob(http.StatusOK, "text/plain", []byte(reportTxt))
@@ -626,8 +629,8 @@ func getDraftState(d *draft, st sesType) *draftState {
 	ds.SessionType = st
 	ds.Setup = d.Setup
 	ds.ViewerCode = d.IDs.Results
-	if d.curSnapshot != nil {
-		ds.Phases = d.curSnapshot.Phases
+	if d.Snap != nil {
+		ds.Phases = d.Snap.Phases
 	}
 
 	return ds

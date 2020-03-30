@@ -1,8 +1,10 @@
 package main
 
 import (
+	"bytes"
 	"encoding/json"
 	"github.com/gorilla/websocket"
+	"html/template"
 	"io/ioutil"
 	"os"
 	"sync"
@@ -58,7 +60,7 @@ type draft struct {
 	wsWriteMutext sync.Mutex
 
 	waitingStart bool
-	curSnapshot  *WsMsg
+	Snap         *WsMsg `json:"-"`
 }
 
 type wsMsgType int
@@ -181,6 +183,27 @@ func ReadMaps(fn string) ([]*GameMap, error) {
 	return maps, nil
 }
 
-func generateDraftReport(d *draft) string {
-	return ""
+func generateDraftReport(d *draft) (string, error) {
+	const tmpl = "Draft: {{.Setup.Name}} -\n\tCreated: {{.Snap.DraftCreatedAt}}\n\tStarted {{.Snap.DraftStartedAt}}\n\tEnded {{.Snap.DraftEndedAt}}\n" +
+		"Map: {{.Setup.MapName}}\n" +
+		"Red Team: {{.Setup.RedName}}\n" +
+		"Blue Team: {{.Setup.BlueName}}\n" +
+		"View code: {{.IDs.Results}}\n" +
+		"Votes:\n" +
+		"{{range .Snap.Phases}}" +
+		"Type: {{.PhaseType}} Red: {{.VoteRedValue}} Blue: {{.VoteBlueValue}}\n" +
+		"{{end}}"
+
+	t, err := template.New("report").Parse(tmpl)
+	if err != nil {
+		return "", err
+	}
+	var buf bytes.Buffer
+	err = t.Execute(&buf, d)
+	if err != nil {
+		return "", err
+	}
+
+	s := buf.String()
+	return s, nil
 }

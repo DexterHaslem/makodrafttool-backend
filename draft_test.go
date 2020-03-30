@@ -28,7 +28,7 @@ func createTestDraft() *draft {
 		readonlyWss:   nil,
 		wsWriteMutext: sync.Mutex{},
 		waitingStart:  false,
-		curSnapshot: &WsMsg{
+		Snap: &WsMsg{
 			Type:               0,
 			AdminConnected:     false,
 			RedConnected:       false,
@@ -70,7 +70,7 @@ func TestDraftRules(t *testing.T) {
 	}
 
 	// first vote, should get all champs still
-	d.curSnapshot.CurrentVote = &phaseVote{
+	d.Snap.CurrentVote = &phaseVote{
 		PhaseNum: 0,
 	}
 
@@ -80,8 +80,8 @@ func TestDraftRules(t *testing.T) {
 	}
 
 	// second vote, need to filter based on previous type and result
-	d.curSnapshot.CurrentPhase = 1
-	d.curSnapshot.CurrentVote.PhaseType = phaseTypeBan
+	d.Snap.CurrentPhase = 1
+	d.Snap.CurrentVote.PhaseType = phaseTypeBan
 	validChamps = validChampsForCurPhase(d)
 	if len(validChamps.blue) < lenAllChamps || len(validChamps.red) < lenAllChamps {
 		t.Errorf("wrong number of champs")
@@ -91,7 +91,7 @@ func TestDraftRules(t *testing.T) {
 
 	p1banRed := "bakko"
 	p1banBlue := "croak"
-	d.curSnapshot.Phases = []*phaseVote{
+	d.Snap.Phases = []*phaseVote{
 		&phaseVote{
 			PhaseType:     phaseTypeBan,
 			PhaseNum:      0,
@@ -116,10 +116,10 @@ func TestDraftRules(t *testing.T) {
 	}
 	*/
 	// check picks after some bans. this isnt valid order but it tests bans
-	d.curSnapshot.CurrentPhase = 3 // zero indexed
-	d.curSnapshot.CurrentVote.PhaseType = phaseTypePick
+	d.Snap.CurrentPhase = 3 // zero indexed
+	d.Snap.CurrentVote.PhaseType = phaseTypePick
 
-	d.curSnapshot.Phases = []*phaseVote{
+	d.Snap.Phases = []*phaseVote{
 		&phaseVote{
 			PhaseType:     phaseTypeBan,
 			PhaseNum:      0,
