@@ -399,75 +399,81 @@ func validChampsForCurPhase(d *draft) *phaseChampSelections {
 		allChamps = append(allChamps, cx.Name)
 	}
 
-	/* first vote, nothing to filter yet */
-	if d.Snap.CurrentVote == nil || d.Snap.CurrentPhase < 1 {
-		return &phaseChampSelections{
-			red:  allChamps,
-			blue: allChamps,
-		}
+	// DH 20200402: this is being problematic, moreso on frontend select filtering, disabled for now
+	return &phaseChampSelections{
+		red:  allChamps,
+		blue: allChamps,
 	}
 
-	retRed := make([]string, 0)
-	retBlue := make([]string, 0)
-
-	inPickPhase := d.Snap.CurrentVote.PhaseType == phaseTypePick
-
-	for _, cn := range allChamps {
-		/* note not orthogonal
-		for each champ:
-			pick phase:
-				- if same team already picked, remove
-				- if opposite team banned, remove
-			ban phase:
-				- if same team already banned, remove (not done atm)
-		*/
-		validRed := true
-		validBlue := true
-
-		for _, pv := range d.Snap.Phases {
-			if inPickPhase {
-				isBan := pv.PhaseType == phaseTypeBan
-
-				if pv.VoteBlueValue == cn {
-					if isBan {
-						validRed = false
-						if validBlue {
-							validBlue = inPickPhase
-						}
-					} else {
-						validBlue = false
-						// does not affect other team
-					}
-				}
-
-				if pv.VoteRedValue == cn {
-					if isBan {
-						validBlue = false
-						if validRed {
-							validRed = inPickPhase
-						}
-					} else {
-						validRed = false
-						// does not affect other team
-					}
-				}
-			} else {
-				// if we're in a ban phase just dont let us pick the same ban repeatedly, TODO ?
+	/*
+		// first vote, nothing to filter yet
+		if d.Snap.CurrentVote == nil || d.Snap.CurrentPhase < 1 {
+			return &phaseChampSelections{
+				red:  allChamps,
+				blue: allChamps,
 			}
 		}
 
-		if validRed {
-			retRed = append(retRed, cn)
-		}
-		if validBlue {
-			retBlue = append(retBlue, cn)
-		}
-	}
+		retRed := make([]string, 0)
+		retBlue := make([]string, 0)
 
-	return &phaseChampSelections{
-		red:  retRed,
-		blue: retBlue,
-	}
+		inPickPhase := d.Snap.CurrentVote.PhaseType == phaseTypePick
+
+		for _, cn := range allChamps {
+			note not orthogonal
+			for each champ:
+				pick phase:
+					- if same team already picked, remove
+					- if opposite team banned, remove
+				ban phase:
+					- if same team already banned, remove (not done atm)
+			validRed := true
+			validBlue := true
+
+			for _, pv := range d.Snap.Phases {
+				if inPickPhase {
+					isBan := pv.PhaseType == phaseTypeBan
+
+					if pv.VoteBlueValue == cn {
+						if isBan {
+							validRed = false
+							if validBlue {
+								validBlue = inPickPhase
+							}
+						} else {
+							validBlue = false
+							// does not affect other team
+						}
+					}
+
+					if pv.VoteRedValue == cn {
+						if isBan {
+							validBlue = false
+							if validRed {
+								validRed = inPickPhase
+							}
+						} else {
+							validRed = false
+							// does not affect other team
+						}
+					}
+				} else {
+					// if we're in a ban phase just dont let us pick the same ban repeatedly, TODO ?
+				}
+			}
+
+			if validRed {
+				retRed = append(retRed, cn)
+			}
+			if validBlue {
+				retBlue = append(retBlue, cn)
+			}
+		}
+
+		return &phaseChampSelections{
+			red:  retRed,
+			blue: retBlue,
+		} */
 }
 
 func notifyClientDc(d *draft, ws *websocket.Conn) {

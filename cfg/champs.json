@@ -3,146 +3,146 @@
     {
       "name": "bakko",
       "displayName": "Bakko",
-      "asset": "static/Bakko_Portrait.png"
+      "asset": "champions/Bakko.jpg"
     },
     {
       "name": "croak",
       "displayName": "Croak",
-      "asset": "static/Croak_Portrait.png"
+      "asset": "champions/Croak.jpg"
     },
     {
       "name": "freya",
       "displayName": "Freya",
-      "asset": "static/Freya_Portrait.png"
+      "asset": "champions/Freya.jpg"
     },
     {
       "name": "jamila",
       "displayName": "Jamila",
-      "asset": "static/Jamila_Portrait.png"
+      "asset": "champions/Jamila.jpg"
     },
     {
       "name": "raigon",
       "displayName": "Raigon",
-      "asset": "static/Raigon_Portrait.png"
+      "asset": "champions/Raigon.jpg"
     },
     {
       "name": "rook",
       "displayName": "Rook",
-      "asset": "static/Rook_Portrait.png"
+      "asset": "champions/Rook.jpg"
     },
     {
       "name": "ruh_kaan",
       "displayName": "Ruh Kaan",
-      "asset": "static/Ruh_Kaan_Portrait.png"
+      "asset": "champions/Ruh Kaan.jpg"
     },
     {
       "name": "shifu",
       "displayName": "Shifu",
-      "asset": "static/Shifu_Portrait.png"
+      "asset": "champions/Shifu.jpg"
     },
     {
       "name": "thorn",
       "displayName": "Thorn",
-      "asset": "static/Thorn_Portrait.png"
+      "asset": "champions/Thorn.jpg"
     }
   ],
   "ranged": [
     {
       "name": "alysia",
       "displayName": "Alysia",
-      "asset": "static/Alysia_Portrait.png"
+      "asset": "champions/Alysia.jpg"
     },
     {
       "name": "ashka",
       "displayName": "Ashka",
-      "asset": "static/Ashka_Portrait.png"
+      "asset": "champions/Ashka.jpg"
     },
     {
       "name": "destiny",
       "displayName": "Destiny",
-      "asset": "static/Destiny_Portrait.png"
+      "asset": "champions/Destiny.jpg"
     },
     {
       "name": "ezmo",
       "displayName": "Ezmo",
-      "asset": "static/Ezmo_Portrait.png"
+      "asset": "champions/Ezmo.jpg"
     },
     {
       "name": "iva",
       "displayName": "Iva",
-      "asset": "static/Iva_Portrait.png"
+      "asset": "champions/Iva.jpg"
     },
     {
       "name": "jade",
       "displayName": "Jade",
-      "asset": "static/Jade_Portrait.png"
+      "asset": "champions/Jade.jpg"
     },
     {
       "name": "jumong",
       "displayName": "Jumong",
-      "asset": "static/Jumong_Portrait.png"
+      "asset": "champions/Jumong.jpg"
     },
     {
       "name": "taya",
       "displayName": "Taya",
-      "asset": "static/Taya_Portrait.png"
+      "asset": "champions/Taya.jpg"
     },
     {
       "name": "shen_rao",
       "displayName": "Shen Rao",
-      "asset": "static/Shen_Rao_Portrait.png"
+      "asset": "champions/Shen Rao.jpg"
     },
     {
       "name": "varesh",
       "displayName": "Varesh",
-      "asset": "static/Varesh_Portrait.png"
+      "asset": "champions/Varesh.jpg"
     }
   ],
   "support": [
     {
       "name": "blossom",
       "displayName": "Blossom",
-      "asset": "static/Blossom_Portrait.png"
+      "asset": "champions/Blossom.jpg"
     },
     {
       "name": "lucie",
       "displayName": "Lucie",
-      "asset": "static/Lucie_Portrait.png"
+      "asset": "champions/Lucie.jpg"
     },
     {
       "name": "oldur",
       "displayName": "Oldur",
-      "asset": "static/Oldur_Portrait.png"
+      "asset": "champions/Oldur.jpg"
     },
     {
       "name": "pearl",
       "displayName": "Pearl",
-      "asset": "static/Pearl_Portrait.png"
+      "asset": "champions/Pearl.jpg"
     },
     {
       "name": "pestilus",
       "displayName": "Pestilus",
-      "asset": "static/Pestilus_Portrait.png"
+      "asset": "champions/Pestilus.jpg"
     },
     {
       "name": "poloma",
       "displayName": "Poloma",
-      "asset": "static/Poloma_Portrait.png"
+      "asset": "champions/Poloma.jpg"
     },
     {
       "name": "sirius",
       "displayName": "Sirius",
-      "asset": "static/Sirius_Portrait.png"
+      "asset": "champions/Sirius.jpg"
     },
     {
       "name": "ulric",
       "displayName": "Ulric",
-      "asset": "static/Ulric_Portrait.png"
+      "asset": "champions/Ulric.jpg"
     },
     {
       "name": "zander",
       "displayName": "Zander",
-      "asset": "static/Zander_Portrait.png"
+      "asset": "champions/Zander.jpg"
     }
   ]
 }

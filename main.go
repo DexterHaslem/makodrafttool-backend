@@ -23,7 +23,6 @@ func fileExists(filename string) bool {
 }
 
 func main() {
-
 	cfg := &serverConfig{}
 	if fileExists(serverCfgFile) {
 		f, err := os.Open(serverCfgFile)
