@@ -234,6 +234,10 @@ func sendTimerUpdate(d *draft) {
 
 /* something changed, send current draft state to all active connections */
 func sendSnap(d *draft) {
+	if d == nil {
+		return
+	}
+
 	updateSnapshot(d)
 
 	wsconns := getAllConnected(d)
@@ -241,6 +245,9 @@ func sendSnap(d *draft) {
 	d.wsWriteMutext.Lock()
 
 	for _, ws := range wsconns {
+		if d == nil || d.Snap == nil {
+			return
+		}
 		/* dont send pending vote stuff to others that would leak picks early */
 		ss := *d.Snap
 
@@ -272,6 +279,9 @@ func sendSnap(d *draft) {
 }
 
 func updateSnapshot(d *draft) {
+	if d == nil {
+		return
+	}
 	if d.Snap == nil {
 		d.Snap = &WsMsg{}
 		d.Snap.Phases = make([]*phaseVote, 0)
