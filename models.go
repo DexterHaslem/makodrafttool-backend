@@ -189,6 +189,7 @@ func generateDraftReport(d *draft) (string, error) {
 		"Red Team: {{.Setup.RedName}}\n" +
 		"Blue Team: {{.Setup.BlueName}}\n" +
 		"View code: {{.IDs.Results}}\n" +
+		"Vote times: {{range .Setup.VotingSecs}} {{.}} {{end}}, Delay time: {{.Setup.PhaseDelaySecs}} \n" +
 		"Votes:\n" +
 		"{{range .Snap.Phases}}" +
 		"\t{{.PhaseType}} - Red: {{.VoteRedValue}} Blue: {{.VoteBlueValue}}\n" +
